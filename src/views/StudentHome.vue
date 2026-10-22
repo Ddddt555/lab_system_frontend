@@ -17,9 +17,12 @@
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
             <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
             <el-table-column prop="teacherName" label="指导教师" width="100" align="center" />
-            <el-table-column prop="sessionTime" label="上课时间" align="center">
-              <template #default="scope">{{ formatTime(scope.row.sessionTime) }}</template>
+            
+            <!-- ⚠️ 教务化时间展示 -->
+            <el-table-column label="上课时间" align="center">
+              <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
             </el-table-column>
+            
             <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
               <template #default="scope">
                 <el-tag :type="scope.row.remainingSeats > 0 ? 'success' : 'danger'">
@@ -28,7 +31,6 @@
               </template>
             </el-table-column>
             
-            <!-- ⚠️ 新增：实验指导书下载列 -->
             <el-table-column label="实验指导书" width="130" align="center">
               <template #default="scope">
                 <a 
@@ -57,9 +59,26 @@
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
             <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
             <el-table-column prop="teacherName" label="指导教师" width="100" align="center" />
-            <el-table-column prop="sessionTime" label="上课时间" align="center">
-              <template #default="scope">{{ formatTime(scope.row.sessionTime) }}</template>
+            
+            <!-- ⚠️ 教务化时间展示 -->
+            <el-table-column label="上课时间" align="center">
+              <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
             </el-table-column>
+            
+            <el-table-column label="指导书" width="120" align="center">
+              <template #default="scope">
+                <a 
+                  v-if="scope.row.guideFile" 
+                  :href="'http://localhost:8080/api/report/download/' + scope.row.guideFile" 
+                  target="_blank" 
+                  style="color: #409EFF; text-decoration: underline;"
+                >
+                  下载指导书
+                </a>
+                <span v-else style="color: gray;">暂无</span>
+              </template>
+            </el-table-column>
+
             <el-table-column label="成绩" width="100" align="center">
               <template #default="scope">
                 <span v-if="scope.row.score !== null && scope.row.score !== undefined" style="color: red; font-weight: bold; font-size: 16px;">
@@ -68,7 +87,7 @@
                 <span v-else style="color: gray;">未批阅</span>
               </template>
             </el-table-column>
-            <el-table-column label="教师评语" width="180" align="center">
+            <el-table-column label="教师评语" width="150" align="center">
               <template #default="scope">
                 <span v-if="scope.row.comment">{{ scope.row.comment }}</span>
                 <span v-else style="color: gray;">-</span>
@@ -186,7 +205,12 @@ const fetchMyBookings = async () => {
   }
 }
 
-const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
+// ⚠️ 格式化时间工具：将结构化数据转成好看的字符串
+const formatTeachingTime = (row) => {
+  if (!row || !row.semester) return '';
+  const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`;
+}
 
 const handleBook = async (sessionNo) => {
   try {

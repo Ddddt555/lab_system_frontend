@@ -10,12 +10,13 @@
 
     <div class="main-content">
       <el-tabs v-model="activeTab">
+        
         <el-tab-pane label="我负责的场次" name="sessions">
           <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
             <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
             <el-table-column prop="projectName" label="实验项目名称" width="200" align="center" />
-            <el-table-column prop="sessionTime" label="上课时间" align="center">
-              <template #default="scope">{{ formatTime(scope.row.sessionTime) }}</template>
+            <el-table-column label="上课时间" align="center">
+              <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
             </el-table-column>
             <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
               <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
@@ -37,16 +38,9 @@
             <el-table-column prop="courseNo" label="所属课程" width="120" align="center" />
             <el-table-column prop="hours" label="学时" width="80" align="center" />
             <el-table-column prop="standard" label="考核标准" align="center" />
-            
-            <!-- ⚠️ 新增：指导书操作列 -->
             <el-table-column label="实验指导书" width="180" align="center">
               <template #default="scope">
-                <el-upload
-                  action="#"
-                  :auto-upload="false"
-                  :show-file-list="false"
-                  :on-change="(file) => handleGuideUpload(file, scope.row.projectNo)"
-                >
+                <el-upload action="#" :auto-upload="false" :show-file-list="false" :on-change="(file) => handleGuideUpload(file, scope.row.projectNo)">
                   <el-button type="primary" size="small" plain>
                     {{ scope.row.guideFile ? '重新上传' : '上传指导书' }}
                   </el-button>
@@ -61,8 +55,8 @@
           <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
             <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
             <el-table-column prop="projectName" label="实验项目名称" align="center" />
-            <el-table-column prop="sessionTime" label="上课时间" align="center">
-              <template #default="scope">{{ formatTime(scope.row.sessionTime) }}</template>
+            <el-table-column label="上课时间" align="center">
+              <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
             </el-table-column>
             <el-table-column prop="capacity" label="总容量" width="100" align="center" />
             <el-table-column label="操作" width="150" align="center">
@@ -135,9 +129,36 @@
             <el-option v-for="r in labOptions" :key="r.roomNo" :label="r.roomNo + ' - ' + r.roomName + ' (容量:' + r.capacity + ')'" :value="r.roomNo" />
           </el-select>
         </el-form-item>
-        <el-form-item label="上课时间" required>
-          <el-date-picker v-model="newSession.sessionTime" type="datetime" placeholder="选择日期和时间" style="width: 100%" value-format="YYYY-MM-DD HH:mm:ss" />
+        
+        <el-form-item label="学期" required>
+          <el-select v-model="newSession.semester" style="width: 100%" placeholder="请选择学期">
+            <el-option v-for="s in semesterOptions" :key="s.semesterName" :label="s.semesterName" :value="s.semesterName" />
+          </el-select>
         </el-form-item>
+        <el-form-item label="周次" required>
+          <el-input-number v-model="newSession.weekNum" :min="1" :max="30" /> <span style="margin-left:10px; color:gray;">周</span>
+        </el-form-item>
+        <el-form-item label="星期" required>
+          <el-select v-model="newSession.dayOfWeek" style="width: 100%">
+            <el-option label="星期一" :value="1" />
+            <el-option label="星期二" :value="2" />
+            <el-option label="星期三" :value="3" />
+            <el-option label="星期四" :value="4" />
+            <el-option label="星期五" :value="5" />
+            <el-option label="星期六" :value="6" />
+            <el-option label="星期日" :value="7" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="节次" required>
+          <el-select v-model="newSession.period" style="width: 100%">
+            <el-option label="1-2节 (08:00)" value="1-2节" />
+            <el-option label="3-4节 (10:00)" value="3-4节" />
+            <el-option label="5-6节 (14:00)" value="5-6节" />
+            <el-option label="7-8节 (16:00)" value="7-8节" />
+            <el-option label="9-10节 (19:00)" value="9-10节" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="容量(机位)" required>
           <el-input-number v-model="newSession.capacity" :min="1" :max="selectedLabCapacity" />
           <span style="margin-left: 10px; color: #909399; font-size: 12px;" v-if="newSession.roomNo">该实验室最大 {{ selectedLabCapacity }} 个机位</span>
@@ -177,6 +198,7 @@ const sessionList = ref([])
 const projectList = ref([])
 const courseOptions = ref([])
 const labOptions = ref([])
+const semesterOptions = ref([]) 
 
 const bookingDialogVisible = ref(false)
 const studentList = ref([])
@@ -187,46 +209,66 @@ const projectDialog = ref(false)
 const newProject = ref({ projectNo: '', projectName: '', courseNo: '', hours: 2, standard: '' })
 
 const sessionDialog = ref(false)
-const newSession = ref({ sessionNo: '', projectNo: '', roomNo: '', sessionTime: '', capacity: 50 })
+const newSession = ref({ 
+  sessionNo: '', 
+  projectNo: '', 
+  roomNo: '', 
+  semester: '', 
+  weekNum: 1, 
+  dayOfWeek: 1, 
+  period: '1-2节', 
+  capacity: 50 
+})
 const selectedLabCapacity = ref(100)
 
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
-onMounted(() => { fetchSessions(); fetchProjects(); fetchCourses(); fetchLabs() })
+onMounted(() => { 
+  fetchSessions(); 
+  fetchProjects(); 
+  fetchCourses(); 
+  fetchLabs(); 
+  fetchSemesters(); 
+})
 
 const fetchSessions = async () => { loading.value = true; try { const res = await axios.get(`http://localhost:8080/api/teacher/my-sessions?workNo=${workNo}`); if (res.data.code === 200) sessionList.value = res.data.data } finally { loading.value = false } }
 const fetchProjects = async () => { try { const res = await axios.get('http://localhost:8080/api/teacher/project/list'); if (res.data.code === 200) projectList.value = res.data.data } catch (e) {} }
 const fetchCourses = async () => { try { const res = await axios.get('http://localhost:8080/api/admin/courses'); if (res.data.code === 200) courseOptions.value = res.data.data } catch (e) {} }
 const fetchLabs = async () => { try { const res = await axios.get('http://localhost:8080/api/teacher/labs'); if (res.data.code === 200) labOptions.value = res.data.data } catch (e) {} }
+const fetchSemesters = async () => { 
+  try { 
+    const res = await axios.get('http://localhost:8080/api/teacher/semesters'); 
+    if (res.data.code === 200) {
+      semesterOptions.value = res.data.data
+      if (semesterOptions.value.length > 0 && !newSession.value.semester) {
+        newSession.value.semester = semesterOptions.value[0].semesterName
+      }
+    }
+  } catch (e) {} 
+}
 
 const handleLabChange = (roomNo) => {
   const lab = labOptions.value.find(r => r.roomNo === roomNo)
   if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity }
 }
 
-// ⚠️ 新增：处理指导书上传
+const formatTeachingTime = (row) => {
+  if (!row || !row.semester) return '';
+  const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`;
+}
+
 const handleGuideUpload = async (file, projectNo) => {
   const rawFile = file.raw
   if (!rawFile) return
-
   const formData = new FormData()
   formData.append('file', rawFile)
   formData.append('projectNo', projectNo)
-
   try {
-    const res = await axios.post('http://localhost:8080/api/teacher/project/upload-guide', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    if (res.data.code === 200) {
-      ElMessage.success('指导书上传成功！')
-      fetchProjects() // 刷新列表以更新按钮状态
-    } else {
-      ElMessage.error(res.data.msg)
-    }
-  } catch (error) {
-    ElMessage.error('上传失败，请检查网络或后端！')
-  }
+    const res = await axios.post('http://localhost:8080/api/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (res.data.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.data.msg) }
+  } catch (error) { ElMessage.error('上传失败！') }
 }
 
 const openAddProject = () => { newProject.value = { projectNo: '', projectName: '', courseNo: '', hours: 2, standard: '' }; projectDialog.value = true }
@@ -238,9 +280,25 @@ const submitAddProject = async () => {
   } catch (e) { ElMessage.error('请求失败') }
 }
 
-const openAddSession = () => { newSession.value = { sessionNo: '', projectNo: '', roomNo: '', sessionTime: '', capacity: 50 }; selectedLabCapacity.value = 100; sessionDialog.value = true }
+const openAddSession = () => { 
+  newSession.value = { 
+    sessionNo: '', 
+    projectNo: '', 
+    roomNo: '', 
+    semester: semesterOptions.value.length > 0 ? semesterOptions.value[0].semesterName : '', 
+    weekNum: 1, 
+    dayOfWeek: 1, 
+    period: '1-2节', 
+    capacity: 50 
+  }; 
+  selectedLabCapacity.value = 100; 
+  sessionDialog.value = true 
+}
+
 const submitAddSession = async () => {
-  if (!newSession.value.sessionNo || !newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.sessionTime) return ElMessage.warning('请填写完整信息！')
+  if (!newSession.value.sessionNo || !newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) {
+    return ElMessage.warning('请填写完整信息！')
+  }
   const payload = { ...newSession.value, workNo: workNo }
   try {
     const res = await axios.post('http://localhost:8080/api/teacher/session/add', payload)
@@ -248,10 +306,11 @@ const submitAddSession = async () => {
   } catch (error) { ElMessage.error('排课失败！') }
 }
 
+// ⚠️ 修复：取消排课时带上 workNo，解决日志身份误判问题
 const deleteSession = async (sessionNo) => {
   try {
     await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' })
-    const res = await axios.delete(`http://localhost:8080/api/teacher/session/delete?sessionNo=${sessionNo}`)
+    const res = await axios.delete(`http://localhost:8080/api/teacher/session/delete?sessionNo=${sessionNo}&workNo=${workNo}`)
     if (res.data.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.data.msg) }
   } catch (e) {}
 }
