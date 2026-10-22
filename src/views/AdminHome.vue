@@ -45,31 +45,35 @@
           </el-table>
         </el-tab-pane>
 
-        <!-- 标签页 3：实验室管理 -->
+        <!-- 标签页 3：实验室管理（包含设备） -->
         <el-tab-pane label="实验室管理" name="labs">
           <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddLab">新增实验室</el-button></div>
           <el-table :data="labList" border style="width: 100%" v-loading="loading">
-            <el-table-column prop="roomNo" label="实验室号" width="150" align="center" />
+            <el-table-column prop="roomNo" label="实验室号" width="120" align="center" />
             <el-table-column prop="roomName" label="实验室名称" align="center" />
             <el-table-column prop="location" label="位置" align="center" />
             <el-table-column prop="capacity" label="容量(机位)" width="120" align="center" />
-            <el-table-column label="操作" width="150" align="center">
-              <template #default="scope"><el-button type="danger" size="small" @click="deleteLab(scope.row.roomNo)">删除</el-button></template>
+            <el-table-column label="操作" width="250" align="center">
+              <template #default="scope">
+                <!-- ⚠️ 新增：管理设备按钮 -->
+                <el-button type="primary" size="small" plain @click="openEquipDialog(scope.row)">管理设备</el-button>
+                <el-button type="danger" size="small" @click="deleteLab(scope.row.roomNo)">删除</el-button>
+              </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <!-- 标签页 4：设备管理 -->
-        <el-tab-pane label="设备管理" name="equipments">
-          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddEquip">新增设备</el-button></div>
-          <el-table :data="equipList" border style="width: 100%" v-loading="loading">
-            <el-table-column prop="equipNo" label="设备号" width="150" align="center" />
-            <el-table-column prop="equipName" label="设备名称" align="center" />
-            <el-table-column prop="model" label="型号" align="center" />
-            <el-table-column prop="quantity" label="数量" width="100" align="center" />
-            <el-table-column prop="roomNo" label="所属实验室" align="center" />
+        <!-- 标签页 4：课程管理 -->
+        <el-tab-pane label="课程管理" name="courses">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddCourse">新增课程</el-button></div>
+          <el-table :data="courseList" border style="width: 100%" v-loading="loading">
+            <el-table-column prop="courseNo" label="课程号" width="150" align="center" />
+            <el-table-column prop="courseName" label="课程名" align="center" />
+            <el-table-column prop="credit" label="学分" width="100" align="center" />
+            <el-table-column prop="hours" label="学时" width="100" align="center" />
+            <el-table-column prop="semester" label="学期" align="center" />
             <el-table-column label="操作" width="150" align="center">
-              <template #default="scope"><el-button type="danger" size="small" @click="deleteEquip(scope.row.equipNo)">删除</el-button></template>
+              <template #default="scope"><el-button type="danger" size="small" @click="deleteCourse(scope.row.courseNo)">删除</el-button></template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
@@ -108,7 +112,8 @@
       </el-tabs>
     </div>
 
-    <!-- 弹窗：新增学生 -->
+    <!-- 各种弹窗 -->
+    <!-- 1. 新增学生 -->
     <el-dialog v-model="studentDialog" title="新增学生" width="400px">
       <el-form :model="newStudent" label-width="80px">
         <el-form-item label="学号" required><el-input v-model="newStudent.studentNo" /></el-form-item>
@@ -120,7 +125,7 @@
       <template #footer><el-button @click="studentDialog = false">取消</el-button><el-button type="primary" @click="submitAddStudent">确认</el-button></template>
     </el-dialog>
 
-    <!-- 弹窗：新增教师 -->
+    <!-- 2. 新增教师 -->
     <el-dialog v-model="teacherDialog" title="新增教师" width="400px">
       <el-form :model="newTeacher" label-width="80px">
         <el-form-item label="工号" required><el-input v-model="newTeacher.workNo" /></el-form-item>
@@ -132,7 +137,7 @@
       <template #footer><el-button @click="teacherDialog = false">取消</el-button><el-button type="primary" @click="submitAddTeacher">确认</el-button></template>
     </el-dialog>
 
-    <!-- 弹窗：新增实验室 -->
+    <!-- 3. 新增实验室 -->
     <el-dialog v-model="labDialog" title="新增实验室" width="400px">
       <el-form :model="newLab" label-width="100px">
         <el-form-item label="实验室号" required><el-input v-model="newLab.roomNo" /></el-form-item>
@@ -143,36 +148,56 @@
       <template #footer><el-button @click="labDialog = false">取消</el-button><el-button type="primary" @click="submitAddLab">确认</el-button></template>
     </el-dialog>
 
-    <!-- 弹窗：新增设备 -->
-    <el-dialog v-model="equipDialog" title="新增设备" width="400px">
+    <!-- ⚠️ 新增：4. 管理实验室设备弹窗 -->
+    <el-dialog v-model="equipDialog" :title="'管理设备 - ' + (currentLab ? currentLab.roomName : '')" width="600px">
+      <div style="margin-bottom: 15px; text-align: right;">
+        <el-button type="primary" size="small" @click="openAddEquip">新增设备</el-button>
+      </div>
+      <el-table :data="currentLabEquipList" border style="width: 100%">
+        <el-table-column prop="equipNo" label="设备号" width="120" align="center" />
+        <el-table-column prop="equipName" label="设备名称" align="center" />
+        <el-table-column prop="model" label="型号" align="center" />
+        <el-table-column prop="quantity" label="数量" width="80" align="center" />
+        <el-table-column label="操作" width="100" align="center">
+          <template #default="scope"><el-button type="danger" size="small" @click="deleteEquip(scope.row.equipNo)">删除</el-button></template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 5. 新增设备子弹窗 -->
+    <el-dialog v-model="addEquipDialog" title="新增设备" width="400px" append-to-body>
       <el-form :model="newEquip" label-width="100px">
         <el-form-item label="设备号" required><el-input v-model="newEquip.equipNo" /></el-form-item>
         <el-form-item label="设备名称" required><el-input v-model="newEquip.equipName" /></el-form-item>
         <el-form-item label="型号"><el-input v-model="newEquip.model" /></el-form-item>
         <el-form-item label="数量"><el-input-number v-model="newEquip.quantity" :min="1" /></el-form-item>
-        <el-form-item label="所属实验室号" required><el-input v-model="newEquip.roomNo" placeholder="如：R001" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="equipDialog = false">取消</el-button><el-button type="primary" @click="submitAddEquip">确认</el-button></template>
+      <template #footer><el-button @click="addEquipDialog = false">取消</el-button><el-button type="primary" @click="submitAddEquip">确认</el-button></template>
     </el-dialog>
 
-    <!-- 弹窗：新增学期 -->
+    <!-- 6. 新增课程 -->
+    <el-dialog v-model="courseDialog" title="新增课程" width="400px">
+      <el-form :model="newCourse" label-width="80px">
+        <el-form-item label="课程号" required><el-input v-model="newCourse.courseNo" /></el-form-item>
+        <el-form-item label="课程名" required><el-input v-model="newCourse.courseName" /></el-form-item>
+        <el-form-item label="学分"><el-input-number v-model="newCourse.credit" :min="0.5" :step="0.5" /></el-form-item>
+        <el-form-item label="学时"><el-input-number v-model="newCourse.hours" :min="1" /></el-form-item>
+        <el-form-item label="学期"><el-input v-model="newCourse.semester" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="courseDialog = false">取消</el-button><el-button type="primary" @click="submitAddCourse">确认</el-button></template>
+    </el-dialog>
+
+    <!-- 7. 新增学期 -->
     <el-dialog v-model="semesterDialog" title="新增学期配置" width="450px">
       <el-form :model="newSemester" label-width="140px">
-        <el-form-item label="学期名称" required>
-          <el-input v-model="newSemester.semesterName" placeholder="如：2026-2027 上学期" />
-        </el-form-item>
-        <el-form-item label="开学第一周(周一)" required>
-          <!-- 日期选择器，限制格式 -->
-          <el-date-picker v-model="newSemester.startDate" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="总周数">
-          <el-input-number v-model="newSemester.totalWeeks" :min="1" :max="30" />
-        </el-form-item>
+        <el-form-item label="学期名称" required><el-input v-model="newSemester.semesterName" placeholder="如：2026-2027 上学期" /></el-form-item>
+        <el-form-item label="开学第一周(周一)" required><el-date-picker v-model="newSemester.startDate" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
+        <el-form-item label="总周数"><el-input-number v-model="newSemester.totalWeeks" :min="1" :max="30" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="semesterDialog = false">取消</el-button><el-button type="primary" @click="submitAddSemester">确认</el-button></template>
     </el-dialog>
 
-    <!-- 弹窗：修改密码 -->
+    <!-- 8. 修改密码 -->
     <el-dialog v-model="pwdDialog" title="修改管理员密码" width="400px">
       <el-form :model="pwdForm" label-width="80px">
         <el-form-item label="原密码" required><el-input v-model="pwdForm.oldPassword" type="password" show-password /></el-form-item>
@@ -185,7 +210,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -198,9 +223,10 @@ const loading = ref(false)
 const studentList = ref([])
 const teacherList = ref([])
 const labList = ref([])
-const equipList = ref([])
+const courseList = ref([])
 const semesterList = ref([])
 const logList = ref([]) 
+const allEquipList = ref([]) // 全局设备列表
 
 // 弹窗变量
 const studentDialog = ref(false)
@@ -212,8 +238,14 @@ const newTeacher = ref({ workNo: '', name: '', password: '', department: '', tit
 const labDialog = ref(false)
 const newLab = ref({ roomNo: '', roomName: '', location: '', capacity: 30 })
 
+// ⚠️ 设备相关的状态
 const equipDialog = ref(false)
+const addEquipDialog = ref(false)
+const currentLab = ref(null)
 const newEquip = ref({ equipNo: '', equipName: '', model: '', quantity: 1, roomNo: '' })
+
+const courseDialog = ref(false)
+const newCourse = ref({ courseNo: '', courseName: '', credit: 2.0, hours: 32, semester: '' })
 
 const semesterDialog = ref(false)
 const newSemester = ref({ semesterName: '', startDate: '', totalWeeks: 20 })
@@ -221,13 +253,20 @@ const newSemester = ref({ semesterName: '', startDate: '', totalWeeks: 20 })
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
+// 计算当前实验室的设备列表
+const currentLabEquipList = computed(() => {
+  if (!currentLab.value) return []
+  return allEquipList.value.filter(e => e.roomNo === currentLab.value.roomNo)
+})
+
 // ================= 数据拉取 =================
 const fetchStudents = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/students'); if (res.data.code === 200) studentList.value = res.data.data } finally { loading.value = false } }
 const fetchTeachers = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/teachers'); if (res.data.code === 200) teacherList.value = res.data.data } finally { loading.value = false } }
 const fetchLabs = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/labs'); if (res.data.code === 200) labList.value = res.data.data } finally { loading.value = false } }
-const fetchEquipments = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/equipments'); if (res.data.code === 200) equipList.value = res.data.data } finally { loading.value = false } }
+const fetchCourses = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/courses'); if (res.data.code === 200) courseList.value = res.data.data } finally { loading.value = false } }
 const fetchSemesters = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/semesters'); if (res.data.code === 200) semesterList.value = res.data.data } finally { loading.value = false } }
 const fetchLogs = async () => { loading.value = true; try { const res = await axios.get('http://localhost:8080/api/admin/logs'); if (res.data.code === 200) logList.value = res.data.data } finally { loading.value = false } }
+const fetchAllEquipments = async () => { try { const res = await axios.get('http://localhost:8080/api/admin/equipments'); if (res.data.code === 200) allEquipList.value = res.data.data } catch (e) {} }
 
 // ================= 学生操作 =================
 const openAddStudent = () => { newStudent.value = { studentNo: '', name: '', password: '', className: '', major: '' }; studentDialog.value = true }
@@ -247,7 +286,7 @@ const submitAddTeacher = async () => {
 }
 const deleteTeacher = async (no) => { try { await ElMessageBox.confirm('确定删除该教师？', '警告', { type: 'warning' }); const res = await axios.delete(`http://localhost:8080/api/admin/teacher/delete?workNo=${no}`); if (res.data.code === 200) { ElMessage.success('删除成功'); fetchTeachers(); fetchLogs() } else { ElMessage.error(res.data.msg) } } catch (e) {} }
 
-// ================= 实验室操作 =================
+// ================= 实验室与设备操作 =================
 const openAddLab = () => { newLab.value = { roomNo: '', roomName: '', location: '', capacity: 30 }; labDialog.value = true }
 const submitAddLab = async () => {
   if (!newLab.value.roomNo || !newLab.value.roomName) return ElMessage.warning('实验室号和名称不能为空！')
@@ -256,14 +295,41 @@ const submitAddLab = async () => {
 }
 const deleteLab = async (no) => { try { await ElMessageBox.confirm('确定删除该实验室？', '警告', { type: 'warning' }); const res = await axios.delete(`http://localhost:8080/api/admin/lab/delete?roomNo=${no}`); if (res.data.code === 200) { ElMessage.success('删除成功'); fetchLabs(); fetchLogs() } else { ElMessage.error(res.data.msg) } } catch (e) {} }
 
-// ================= 设备操作 =================
-const openAddEquip = () => { newEquip.value = { equipNo: '', equipName: '', model: '', quantity: 1, roomNo: '' }; equipDialog.value = true }
-const submitAddEquip = async () => {
-  if (!newEquip.value.equipNo || !newEquip.value.equipName || !newEquip.value.roomNo) return ElMessage.warning('请填写完整信息！')
-  const res = await axios.post('http://localhost:8080/api/admin/equipment/add', newEquip.value)
-  if (res.data.code === 200) { ElMessage.success(res.data.data); equipDialog.value = false; fetchEquipments(); fetchLogs() } else { ElMessage.error(res.data.msg) }
+// 打开设备管理弹窗
+const openEquipDialog = (lab) => {
+  currentLab.value = lab
+  fetchAllEquipments()
+  equipDialog.value = true
 }
-const deleteEquip = async (no) => { try { await ElMessageBox.confirm('确定删除该设备？', '警告', { type: 'warning' }); const res = await axios.delete(`http://localhost:8080/api/admin/equipment/delete?equipNo=${no}`); if (res.data.code === 200) { ElMessage.success('删除成功'); fetchEquipments(); fetchLogs() } else { ElMessage.error(res.data.msg) } } catch (e) {} }
+
+// 新增设备弹窗
+const openAddEquip = () => {
+  newEquip.value = { equipNo: '', equipName: '', model: '', quantity: 1, roomNo: currentLab.value.roomNo }
+  addEquipDialog.value = true
+}
+
+const submitAddEquip = async () => {
+  if (!newEquip.value.equipNo || !newEquip.value.equipName) return ElMessage.warning('设备号和名称不能为空！')
+  const res = await axios.post('http://localhost:8080/api/admin/equipment/add', newEquip.value)
+  if (res.data.code === 200) { ElMessage.success(res.data.data); addEquipDialog.value = false; fetchAllEquipments(); fetchLogs() } else { ElMessage.error(res.data.msg) }
+}
+
+const deleteEquip = async (equipNo) => {
+  try {
+    await ElMessageBox.confirm('确定删除该设备？', '警告', { type: 'warning' })
+    const res = await axios.delete(`http://localhost:8080/api/admin/equipment/delete?equipNo=${equipNo}`)
+    if (res.data.code === 200) { ElMessage.success('删除成功'); fetchAllEquipments(); fetchLogs() } else { ElMessage.error(res.data.msg) }
+  } catch (e) {}
+}
+
+// ================= 课程操作 =================
+const openAddCourse = () => { newCourse.value = { courseNo: '', courseName: '', credit: 2.0, hours: 32, semester: '' }; courseDialog.value = true }
+const submitAddCourse = async () => {
+  if (!newCourse.value.courseNo || !newCourse.value.courseName) return ElMessage.warning('课程号和课程名不能为空！')
+  const res = await axios.post('http://localhost:8080/api/admin/course/add', newCourse.value)
+  if (res.data.code === 200) { ElMessage.success(res.data.data); courseDialog.value = false; fetchCourses(); fetchLogs() } else { ElMessage.error(res.data.msg) }
+}
+const deleteCourse = async (no) => { try { await ElMessageBox.confirm('确定删除该课程？', '警告', { type: 'warning' }); const res = await axios.delete(`http://localhost:8080/api/admin/course/delete?courseNo=${no}`); if (res.data.code === 200) { ElMessage.success('删除成功'); fetchCourses(); fetchLogs() } else { ElMessage.error(res.data.msg) } } catch (e) {} }
 
 // ================= 学期操作 =================
 const openAddSemester = () => { newSemester.value = { semesterName: '', startDate: '', totalWeeks: 20 }; semesterDialog.value = true }
@@ -298,7 +364,7 @@ onMounted(() => {
   fetchStudents(); 
   fetchTeachers(); 
   fetchLabs(); 
-  fetchEquipments();
+  fetchCourses();
   fetchSemesters();
   fetchLogs(); 
 })

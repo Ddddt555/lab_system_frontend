@@ -265,6 +265,8 @@ const handleGuideUpload = async (file, projectNo) => {
   const formData = new FormData()
   formData.append('file', rawFile)
   formData.append('projectNo', projectNo)
+  formData.append('workNo', workNo) 
+
   try {
     const res = await axios.post('http://localhost:8080/api/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     if (res.data.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.data.msg) }
