@@ -65,11 +65,11 @@ const handleLogin = async () => {
     // 1. 动态选择接口
     let apiUrl = ''
     if (role.value === 'student') {
-      apiUrl = 'http://localhost:8080/api/login/student'
+      apiUrl = '/api/login/student'
     } else if (role.value === 'teacher') {
-      apiUrl = 'http://localhost:8080/api/login/teacher'
+      apiUrl = '/api/login/teacher'
     } else {
-      apiUrl = 'http://localhost:8080/api/login/admin'
+      apiUrl = '/api/login/admin'
     }
 
     // ⚠️ 2. 发送请求（刚才漏掉的就是这里！）
