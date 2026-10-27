@@ -14,7 +14,7 @@
 
     <div class="main-content">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        
+
         <!-- 1. 我负责的场次 -->
         <el-tab-pane label="我负责的场次" name="sessions">
           <div class="table-responsive">
@@ -45,7 +45,7 @@
             <el-table :data="paginatedProjectList" border style="width: 100%" v-loading="loading">
               <el-table-column prop="projectNo" label="项目号" width="120" align="center" />
               <el-table-column prop="projectName" label="项目名称" width="180" align="center" />
-              <el-table-column prop="courseNo" label="所属课程" width="120" align="center" />
+              <el-table-column prop="classNo" label="所属教学班" width="150" align="center" />
               <el-table-column prop="hours" label="学时" width="80" align="center" />
               <el-table-column prop="standard" label="考核标准" width="180" align="center" />
               <el-table-column label="实验指导书" width="150" align="center">
@@ -84,12 +84,12 @@
         <!-- 4. 成绩管理 -->
         <el-tab-pane label="成绩管理" name="scores">
           <div style="margin-bottom: 15px;">
-            <el-select v-model="selectedCourseNo" placeholder="请选择课程" :style="{ width: isMobile ? '100%' : '300px' }" @change="fetchCourseScores">
-              <el-option v-for="c in courseOptions" :key="c.courseNo" :label="c.courseNo + ' - ' + c.courseName" :value="c.courseNo" />
+            <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="fetchCourseScores">
+              <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
             </el-select>
           </div>
           <div class="table-responsive">
-            <el-table :data="paginatedScoreList" border style="width: 100%" v-loading="loading" v-if="selectedCourseNo">
+            <el-table :data="paginatedScoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
               <el-table-column prop="studentNo" label="学号" width="150" align="center" />
               <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
               <el-table-column label="平时成绩 (30%)" width="150" align="center">
@@ -106,7 +106,7 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-pagination v-if="selectedCourseNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="scoreList.length" style="margin-top: 15px; justify-content: center;" />
+          <el-pagination v-if="selectedClassNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="scoreList.length" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
         <!-- 5. 数据报表 -->
@@ -129,7 +129,7 @@
       </el-tabs>
     </div>
 
-    <!-- 弹窗群 (全部改成响应式宽度) -->
+    <!-- 弹窗群 -->
     <el-dialog v-model="bookingDialogVisible" title="学生预约名单" :width="isMobile ? '95%' : '60%'">
       <div class="table-responsive">
         <el-table :data="studentList" border style="width: 100%">
@@ -164,13 +164,13 @@
       </div>
     </el-dialog>
 
+    <!-- ⚠️ 修改：移除了项目号输入框 -->
     <el-dialog v-model="projectDialog" title="发布新实验项目" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newProject" label-width="100px">
-        <el-form-item label="项目号" required><el-input v-model="newProject.projectNo" placeholder="如：P003" /></el-form-item>
         <el-form-item label="项目名称" required><el-input v-model="newProject.projectName" /></el-form-item>
-        <el-form-item label="所属课程" required>
-          <el-select v-model="newProject.courseNo" placeholder="请选择课程" style="width: 100%">
-            <el-option v-for="c in courseOptions" :key="c.courseNo" :label="c.courseNo + ' - ' + c.courseName" :value="c.courseNo" />
+        <el-form-item label="所属教学班" required>
+          <el-select v-model="newProject.classNo" placeholder="请选择教学班" style="width: 100%">
+            <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
           </el-select>
         </el-form-item>
         <el-form-item label="学时"><el-input-number v-model="newProject.hours" :min="1" /></el-form-item>
@@ -179,9 +179,9 @@
       <template #footer><el-button @click="projectDialog = false">取消</el-button><el-button type="primary" @click="submitAddProject">确认发布</el-button></template>
     </el-dialog>
 
+    <!-- ⚠️ 修改：移除了场次号输入框 -->
     <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newSession" label-width="80px">
-        <el-form-item label="场次号" required><el-input v-model="newSession.sessionNo" placeholder="如：S003" /></el-form-item>
         <el-form-item label="实验项目" required>
           <el-select v-model="newSession.projectNo" placeholder="请选择项目" style="width: 100%">
             <el-option v-for="p in projectList" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
@@ -255,7 +255,7 @@
 <script setup>
 import { ref, onMounted, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { Bell } from '@element-plus/icons-vue'
@@ -265,7 +265,6 @@ const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const workNo = loginUser ? loginUser.workNo : ''
 if (!workNo) router.push('/')
 
-// ⚠️ 新增：响应式判断
 const screenWidth = ref(window.innerWidth)
 const isMobile = computed(() => screenWidth.value < 768)
 const handleResize = () => { screenWidth.value = window.innerWidth }
@@ -275,9 +274,9 @@ const loading = ref(false)
 
 const sessionList = ref([])
 const projectList = ref([])
-const courseOptions = ref([])
+const myClassOptions = ref([]) 
 const labOptions = ref([])
-const semesterOptions = ref([]) 
+const semesterOptions = ref([])
 const scoreList = ref([])
 
 const sessionPage = ref(1)
@@ -289,17 +288,19 @@ const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage
 const paginatedProjectList = computed(() => projectList.value.slice((projectPage.value - 1) * pageSize.value, projectPage.value * pageSize.value))
 const paginatedScoreList = computed(() => scoreList.value.slice((scorePage.value - 1) * pageSize.value, scorePage.value * pageSize.value))
 
-const selectedCourseNo = ref('')
+const selectedClassNo = ref('') 
 const bookingDialogVisible = ref(false)
 const studentList = ref([])
 const reportDialogVisible = ref(false)
 const reportList = ref([])
 
 const projectDialog = ref(false)
-const newProject = ref({ projectNo: '', projectName: '', courseNo: '', hours: 2, standard: '' })
+// ⚠️ 移除 projectNo
+const newProject = ref({ projectName: '', classNo: '', hours: 2, standard: '' })
 
 const sessionDialog = ref(false)
-const newSession = ref({ sessionNo: '', projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
+// ⚠️ 移除 sessionNo
+const newSession = ref({ projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
 const selectedLabCapacity = ref(100)
 
 const pwdDialog = ref(false)
@@ -316,8 +317,8 @@ const rateChartRef = ref(null)
 let scoreChart = null
 let rateChart = null
 
-onMounted(() => { 
-  fetchSessions(); fetchProjects(); fetchCourses(); fetchLabs(); fetchSemesters(); fetchNotices();
+onMounted(() => {
+  fetchSessions(); fetchProjects(); fetchMyClasses(); fetchLabs(); fetchSemesters(); fetchNotices();
   window.addEventListener('resize', handleResize)
 })
 
@@ -331,25 +332,38 @@ const handleTabChange = (name) => {
   if (name === 'stats') nextTick(() => renderCharts())
 }
 
-const fetchSessions = async () => { loading.value = true; try { const res = await axios.get(`/api/teacher/my-sessions?workNo=${workNo}`); if (res.data.code === 200) sessionList.value = res.data.data } finally { loading.value = false } }
-const fetchProjects = async () => { try { const res = await axios.get('/api/teacher/project/list'); if (res.data.code === 200) projectList.value = res.data.data } catch (e) {} }
-const fetchCourses = async () => { try { const res = await axios.get('/api/admin/courses'); if (res.data.code === 200) courseOptions.value = res.data.data } catch (e) {} }
-const fetchLabs = async () => { try { const res = await axios.get('/api/teacher/labs'); if (res.data.code === 200) labOptions.value = res.data.data } catch (e) {} }
-const fetchSemesters = async () => { 
+const fetchSessions = async () => {
+  loading.value = true;
+  try {
+    const res = await request.get(`/teacher/my-sessions`);
+    if (res.code === 200) sessionList.value = res.data
+  } finally {
+    loading.value = false
+  }
+}
+const fetchProjects = async () => { try { const res = await request.get('/teacher/project/list'); if (res.code === 200) projectList.value = res.data } catch (e) {} }
+const fetchMyClasses = async () => { 
   try { 
-    const res = await axios.get('/api/teacher/semesters'); 
-    if (res.data.code === 200) {
-      semesterOptions.value = res.data.data
+    const res = await request.get('/teacher/my-classes'); 
+    if (res.code === 200) myClassOptions.value = res.data 
+  } catch (e) {} 
+}
+const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
+const fetchSemesters = async () => {
+  try {
+    const res = await request.get('/teacher/semesters');
+    if (res.code === 200) {
+      semesterOptions.value = res.data
       if (semesterOptions.value.length > 0 && !newSession.value.semester) newSession.value.semester = semesterOptions.value[0].semesterName
     }
-  } catch (e) {} 
+  } catch (e) {}
 }
 
 const fetchNotices = async () => {
   try {
-    const res = await axios.get('/api/notice/list?role=teacher')
-    if (res.data.code === 200) {
-      noticeList.value = res.data.data
+    const res = await request.get('/notice/list?role=teacher')
+    if (res.code === 200) {
+      noticeList.value = res.data
       if (noticeList.value.length > 0) {
         const latestTime = new Date(noticeList.value[0].createTime).getTime()
         const lastReadStr = localStorage.getItem('lastReadNoticeTime')
@@ -366,58 +380,120 @@ const openPublishDialog = () => { noticeForm.value = { title: '', content: '' };
 const submitPublish = async () => {
   if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
   try {
-    const res = await axios.post('/api/notice/publish', null, {
+    const res = await request.post('/notice/publish', null, {
       params: { title: noticeForm.value.title, content: noticeForm.value.content, publisherName: loginUser ? loginUser.name : '老师', targetRole: 'student' }
     })
-    if (res.data.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
+    if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
   } catch (e) { ElMessage.error('发布失败') }
 }
 
 const renderCharts = async () => {
   if (scoreChartRef.value) {
     if (!scoreChart) scoreChart = echarts.init(scoreChartRef.value)
-    const res = await axios.get('/api/teacher/stats/score-distribution')
-    if (res.data.code === 200) {
-      const data = res.data.data
+    const res = await request.get('/teacher/stats/score-distribution')
+    if (res.code === 200) {
+      const data = res.data
       scoreChart.setOption({
         tooltip: { trigger: 'item' }, legend: { top: 'bottom' },
         series: [{ name: '成绩分布', type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false, itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }, label: { show: false, position: 'center' }, emphasis: { label: { show: true, fontSize: 20, fontWeight: 'bold' } }, labelLine: { show: false },
             data: [{ value: data['优秀'], name: '优秀 (90-100)', itemStyle: { color: '#67C23A' } }, { value: data['良好'], name: '良好 (80-89)', itemStyle: { color: '#409EFF' } }, { value: data['中等'], name: '中等 (70-79)', itemStyle: { color: '#E6A23C' } }, { value: data['及格'], name: '及格 (60-69)', itemStyle: { color: '#909399' } }, { value: data['不及格'], name: '不及格 (<60)', itemStyle: { color: '#F56C6C' } }]
         }]
-      })
+      }, true) 
     }
   }
   if (rateChartRef.value) {
     if (!rateChart) rateChart = echarts.init(rateChartRef.value)
-    const res = await axios.get('/api/teacher/stats/experiment-rate')
-    if (res.data.code === 200) {
-      const data = res.data.data
+    const res = await request.get('/teacher/stats/experiment-rate')
+    if (res.code === 200) {
+      const data = res.data
       rateChart.setOption({
         tooltip: { formatter: '{b}: {c}%' },
         series: [{ type: 'gauge', startAngle: 180, endAngle: 0, min: 0, max: 100, splitNumber: 5, itemStyle: { color: '#409EFF' }, progress: { show: true, width: 18 }, pointer: { show: false }, axisLine: { lineStyle: { width: 18 } }, axisTick: { show: false }, splitLine: { length: 15, lineStyle: { width: 2, color: '#999' } }, axisLabel: { distance: 25, color: '#999', fontSize: 12 }, detail: { valueAnimation: true, formatter: '{value}%', color: '#409EFF', fontSize: 30, offsetCenter: [0, '40%'] }, data: [{ value: parseFloat(data.rate), name: `已开 ${data.opened} / 共 ${data.total} 个` }], title: { offsetCenter: [0, '70%'], fontSize: 14, color: '#666' } }]
-      })
+      }, true) 
     }
   }
 }
 
-const fetchCourseScores = async () => { if (!selectedCourseNo.value) return; loading.value = true; try { const res = await axios.get(`/api/teacher/scores?courseNo=${selectedCourseNo.value}`); if (res.data.code === 200) scoreList.value = res.data.data } catch (e) { ElMessage.error('获取成绩单失败') } finally { loading.value = false } }
-const saveScore = async (studentNo) => { const row = scoreList.value.find(item => item.studentNo === studentNo); if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩'); try { const res = await axios.post(`/api/teacher/score/save?studentNo=${studentNo}&courseNo=${selectedCourseNo.value}&dailyScore=${row.score}&workNo=${workNo}`); if (res.data.code === 200) { ElMessage.success(res.data.data); fetchCourseScores() } else { ElMessage.error(res.data.msg) } } catch (error) { ElMessage.error('保存失败') } }
+const fetchCourseScores = async () => { if (!selectedClassNo.value) return; loading.value = true; try { const res = await request.get(`/teacher/scores?classNo=${selectedClassNo.value}`); if (res.code === 200) scoreList.value = res.data } catch (e) { ElMessage.error('获取成绩单失败') } finally { loading.value = false } }
+const saveScore = async (studentNo) => { 
+  const row = scoreList.value.find(item => item.studentNo === studentNo); 
+  if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩'); 
+  try { 
+    const res = await request.post(`/teacher/score/save?studentNo=${studentNo}&classNo=${selectedClassNo.value}&dailyScore=${row.score}`); 
+    if (res.code === 200) { ElMessage.success(res.data); fetchCourseScores() } else { ElMessage.error(res.msg) } 
+  } catch (error) { ElMessage.error('保存失败') } 
+}
+
 const handleLabChange = (roomNo) => { const lab = labOptions.value.find(r => r.roomNo === roomNo); if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity } }
 const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`; }
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 
-const handleGuideUpload = async (file, projectNo) => { const rawFile = file.raw; if (!rawFile) return; const formData = new FormData(); formData.append('file', rawFile); formData.append('projectNo', projectNo); formData.append('workNo', workNo); try { const res = await axios.post('/api/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); if (res.data.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.data.msg) } } catch (error) { ElMessage.error('上传失败！') } }
-const openAddProject = () => { newProject.value = { projectNo: '', projectName: '', courseNo: '', hours: 2, standard: '' }; projectDialog.value = true }
-const submitAddProject = async () => { if (!newProject.value.projectNo || !newProject.value.projectName || !newProject.value.courseNo) return ElMessage.warning('请填写完整信息！'); try { const res = await axios.post('/api/teacher/project/add', newProject.value); if (res.data.code === 200) { ElMessage.success('发布成功！'); projectDialog.value = false; fetchProjects() } else { ElMessage.error(res.data.msg) } } catch (e) { ElMessage.error('请求失败') } }
-const openAddSession = () => { newSession.value = { sessionNo: '', projectNo: '', roomNo: '', semester: semesterOptions.value.length > 0 ? semesterOptions.value[0].semesterName : '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 }; selectedLabCapacity.value = 100; sessionDialog.value = true }
-const submitAddSession = async () => { if (!newSession.value.sessionNo || !newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) return ElMessage.warning('请填写完整信息！'); const payload = { ...newSession.value, workNo: workNo }; try { const res = await axios.post('/api/teacher/session/add', payload); if (res.data.code === 200) { ElMessage.success('排课成功！'); sessionDialog.value = false; fetchSessions(); activeTab.value = 'sessions' } else { ElMessage.error(res.data.msg) } } catch (error) { ElMessage.error('排课失败！') } }
-const deleteSession = async (sessionNo) => { try { await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' }); const res = await axios.delete(`/api/teacher/session/delete?sessionNo=${sessionNo}&workNo=${workNo}`); if (res.data.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.data.msg) } } catch (e) {} }
-const viewBookings = async (session) => { try { const res = await axios.get(`/api/teacher/session-bookings?sessionNo=${session.sessionNo}`); if (res.data.code === 200) { studentList.value = res.data.data; bookingDialogVisible.value = true } } catch (error) {} }
-const openReports = async (session) => { try { const res = await axios.get(`/api/report/list-by-project?projectNo=${session.projectNo}`); if (res.data.code === 200) { reportList.value = res.data.data; reportDialogVisible.value = true } } catch (error) {} }
-const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await axios.post(`/api/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.data.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } } catch (error) {} }
+const handleGuideUpload = async (file, projectNo) => { 
+  const rawFile = file.raw; 
+  if (!rawFile) return; 
+  const formData = new FormData(); 
+  formData.append('file', rawFile); 
+  formData.append('projectNo', projectNo); 
+  try { 
+    const res = await request.post('/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); 
+    if (res.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.msg) } 
+  } catch (error) { ElMessage.error('上传失败！') } 
+}
+
+const openAddProject = () => { newProject.value = { projectName: '', classNo: '', hours: 2, standard: '' }; projectDialog.value = true }
+const submitAddProject = async () => { 
+  if (!newProject.value.projectName || !newProject.value.classNo) return ElMessage.warning('请填写完整信息！'); 
+  try { 
+    const res = await request.post('/teacher/project/add', newProject.value); 
+    if (res.code === 200) { ElMessage.success(res.data); projectDialog.value = false; fetchProjects() } else { ElMessage.error(res.msg) } 
+  } catch (e) { ElMessage.error('请求失败') } 
+}
+
+const openAddSession = () => { newSession.value = { projectNo: '', roomNo: '', semester: semesterOptions.value.length > 0 ? semesterOptions.value[0].semesterName : '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 }; selectedLabCapacity.value = 100; sessionDialog.value = true }
+const submitAddSession = async () => { 
+  if (!newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) return ElMessage.warning('请填写完整信息！'); 
+  try { 
+    const res = await request.post('/teacher/session/add', newSession.value); 
+    if (res.code === 200) { ElMessage.success(res.data); sessionDialog.value = false; fetchSessions(); activeTab.value = 'sessions' } else { ElMessage.error(res.msg) } 
+  } catch (error) { ElMessage.error('排课失败！') } 
+}
+
+const deleteSession = async (sessionNo) => { 
+  try { 
+    await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' }); 
+    const res = await request.delete(`/teacher/session/delete?sessionNo=${sessionNo}`); 
+    if (res.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.msg) } 
+  } catch (e) {} 
+}
+const viewBookings = async (session) => { try { const res = await request.get(`/teacher/session-bookings?sessionNo=${session.sessionNo}`); if (res.code === 200) { studentList.value = res.data; bookingDialogVisible.value = true } } catch (error) {} }
+const openReports = async (session) => { try { const res = await request.get(`/report/list-by-project?projectNo=${session.projectNo}`); if (res.code === 200) { reportList.value = res.data; reportDialogVisible.value = true } } catch (error) {} }
+const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } } catch (error) {} }
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
-const submitPwd = async () => { const { oldPassword, newPassword, confirmPassword } = pwdForm.value; if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！'); if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！'); try { const res = await axios.post('/api/teacher/update-password', null, { params: { workNo: workNo, oldPwd: oldPassword, newPwd: newPassword } }); if (res.data.code === 200) { ElMessage.success('修改成功，请重新登录！'); pwdDialog.value = false; setTimeout(() => { localStorage.removeItem('loginUser'); router.push('/') }, 1000) } else { ElMessage.error(res.data.msg) } } catch (error) { ElMessage.error('网络错误，修改失败！') } }
-const logout = () => { localStorage.removeItem('loginUser'); router.push('/') }
+
+const submitPwd = async () => {
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value;
+  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！');
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！');
+  try {
+    const res = await request.post('/teacher/update-password', null, {
+      params: { oldPwd: oldPassword, newPwd: newPassword }
+    });
+    if (res.code === 200) {
+      ElMessage.success('修改成功，请重新登录！');
+      pwdDialog.value = false;
+      setTimeout(() => {
+        localStorage.removeItem('loginUser');
+        localStorage.removeItem('token');
+        router.push('/')
+      }, 1000)
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，修改失败！')
+  }
+}
+const logout = () => { localStorage.removeItem('loginUser'); localStorage.removeItem('token'); router.push('/') }
 </script>
 
 <style scoped>
@@ -426,22 +502,10 @@ const logout = () => { localStorage.removeItem('loginUser'); router.push('/') }
 .header h2 { margin: 0; color: #333; }
 .main-content { padding: 40px; max-width: 1300px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1); margin-top: 20px;}
 
-/* 📱 手机端适配核心样式 */
-.table-responsive {
-  width: 100%;
-  overflow-x: auto; /* 手机端表格内部横向滑动，不破坏布局 */
-  -webkit-overflow-scrolling: touch;
-}
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 @media screen and (max-width: 768px) {
-  .header {
-    padding: 10px 15px;
-    height: auto;
-    min-height: 60px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
+  .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }
   .header h2 { font-size: 16px; }
   .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 10px;}
   .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }

@@ -1,0 +1,1715 @@
+﻿
+--- File: G:\DevEnv\Project\lab-system-frontend\src\components\HelloWorld.vue ---
+<script setup>
+import { ref } from 'vue'
+import heroImg from '../assets/hero.png'
+import viteLogo from '../assets/vite.svg'
+import vueLogo from '../assets/vue.svg'
+
+const count = ref(0)
+</script>
+
+<template>
+  <section id="center">
+    <div class="hero">
+      <img :src="heroImg" class="base" width="170" height="179" alt="" />
+      <img :src="vueLogo" class="framework" alt="Vue logo" />
+      <img :src="viteLogo" class="vite" alt="Vite logo" />
+    </div>
+    <div>
+      <h1>Get started</h1>
+      <p>Edit <code>src/App.vue</code> and save to test <code>HMR</code></p>
+    </div>
+    <button type="button" class="counter" @click="count++">
+      Count is {{ count }}
+    </button>
+  </section>
+
+  <div class="ticks"></div>
+
+  <section id="next-steps">
+    <div id="docs">
+      <svg class="icon" role="presentation" aria-hidden="true">
+        <use href="/icons.svg#documentation-icon"></use>
+      </svg>
+      <h2>Documentation</h2>
+      <p>Your questions, answered</p>
+      <ul>
+        <li>
+          <a href="https://vite.dev/" target="_blank">
+            <img class="logo" :src="viteLogo" alt="" />
+            Explore Vite
+          </a>
+        </li>
+        <li>
+          <a href="https://vuejs.org/" target="_blank">
+            <img class="button-icon" :src="vueLogo" alt="" />
+            Learn more
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div id="social">
+      <svg class="icon" role="presentation" aria-hidden="true">
+        <use href="/icons.svg#social-icon"></use>
+      </svg>
+      <h2>Connect with us</h2>
+      <p>Join the Vite community</p>
+      <ul>
+        <li>
+          <a href="https://github.com/vitejs/vite" target="_blank">
+            <svg class="button-icon" role="presentation" aria-hidden="true">
+              <use href="/icons.svg#github-icon"></use>
+            </svg>
+            GitHub
+          </a>
+        </li>
+        <li>
+          <a href="https://chat.vite.dev/" target="_blank">
+            <svg class="button-icon" role="presentation" aria-hidden="true">
+              <use href="/icons.svg#discord-icon"></use>
+            </svg>
+            Discord
+          </a>
+        </li>
+        <li>
+          <a href="https://x.com/vite_js" target="_blank">
+            <svg class="button-icon" role="presentation" aria-hidden="true">
+              <use href="/icons.svg#x-icon"></use>
+            </svg>
+            X.com
+          </a>
+        </li>
+        <li>
+          <a href="https://bsky.app/profile/vite.dev" target="_blank">
+            <svg class="button-icon" role="presentation" aria-hidden="true">
+              <use href="/icons.svg#bluesky-icon"></use>
+            </svg>
+            Bluesky
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="ticks"></div>
+  <section id="spacer"></section>
+</template>
+
+
+--- File: G:\DevEnv\Project\lab-system-frontend\src\views\Login.vue ---
+<template>
+  <div class="login-container">
+    <div class="login-box">
+      <h2>实验教学管理系统</h2>
+      
+      <!-- 身份选择 -->
+      <el-radio-group v-model="role" class="input-item">
+        <el-radio value="student">学生登录</el-radio>
+        <el-radio value="teacher">教师登录</el-radio>
+        <el-radio value="admin">管理员登录</el-radio>
+      </el-radio-group>
+      
+      <!-- 账号输入框 -->
+      <el-input 
+        v-model="username" 
+        placeholder="请输入账号" 
+        size="large" 
+        class="input-item" 
+      />
+      
+      <!-- 密码输入框 -->
+      <el-input 
+        v-model="password" 
+        type="password" 
+        placeholder="请输入密码" 
+        size="large" 
+        class="input-item" 
+        show-password 
+        @keyup.enter="handleLogin" 
+      />
+
+      <!-- ⚠️ 新增：验证码输入框及图片 -->
+      <div class="captcha-container">
+        <el-input 
+          v-model="captchaCode" 
+          placeholder="请输入验证码" 
+          size="large" 
+          class="captcha-input"
+          @keyup.enter="handleLogin"
+        />
+        <!-- 点击图片可以刷新 -->
+        <img 
+          :src="captchaImage" 
+          @click="fetchCaptcha" 
+          class="captcha-img" 
+          title="点击刷新验证码"
+          alt="验证码"
+        />
+      </div>
+      
+      <!-- 登录按钮 -->
+      <el-button 
+        type="primary" 
+        size="large" 
+        class="login-btn" 
+        @click="handleLogin"
+        :loading="loading"
+      >
+        登 录
+      </el-button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import request from '../utils/request' 
+
+const role = ref('student')
+const username = ref('')
+const password = ref('')
+const loading = ref(false)
+const router = useRouter()
+
+// ⚠️ 新增：验证码相关变量
+const captchaKey = ref('')
+const captchaCode = ref('')
+const captchaImage = ref('')
+
+// ⚠️ 获取验证码方法
+const fetchCaptcha = async () => {
+  try {
+    const res = await request.get('/captcha')
+    if (res.code === 200) {
+      captchaKey.value = res.data.captchaKey
+      captchaImage.value = res.data.captchaImage
+      captchaCode.value = '' // 刷新时清空输入
+    }
+  } catch (error) {
+    ElMessage.error('获取验证码失败，请检查网络！')
+  }
+}
+
+// 页面加载时自动获取验证码
+onMounted(() => {
+  fetchCaptcha()
+})
+
+const handleLogin = async () => {
+  if (!username.value || !password.value) {
+    ElMessage.warning('请输入账号和密码！')
+    return
+  }
+  if (!captchaCode.value) {
+    ElMessage.warning('请输入验证码！')
+    return
+  }
+  
+  loading.value = true
+  try {
+    let apiUrl = ''
+    if (role.value === 'student') {
+      apiUrl = '/login/student'
+    } else if (role.value === 'teacher') {
+      apiUrl = '/login/teacher'
+    } else {
+      apiUrl = '/login/admin'
+    }
+
+    // ⚠️ 发送请求时带上验证码参数
+    const res = await request.post(apiUrl, null, {
+      params: {
+        username: username.value,
+        password: password.value,
+        captchaKey: captchaKey.value,  // 传 UUID
+        captchaCode: captchaCode.value // 传用户输入的验证码
+      }
+    })
+
+    if (res.code === 200) {
+      const userData = res.data.user
+      const token = res.data.token
+
+      if (role.value === 'admin') {
+        userData.role = 'admin'
+      } else {
+        userData.role = role.value
+      }
+
+      ElMessage.success('登录成功！欢迎你，' + userData.name)
+      
+      localStorage.setItem('loginUser', JSON.stringify(userData)) 
+      localStorage.setItem('token', token) 
+
+      if (role.value === 'student') {
+        router.push('/student-home')
+      } else if (role.value === 'teacher') {
+        router.push('/teacher-home')
+      } else {
+        router.push('/admin-home')
+      }
+
+    } else {
+      ElMessage.error(res.msg)
+      fetchCaptcha() // ⚠️ 核心：登录失败（包括验证码错），立刻刷新一张新验证码
+    }
+  } catch (error) {
+    console.error(error)
+    if (!error.response || error.response.status !== 401) {
+      ElMessage.error('网络错误，请检查后端是否启动！')
+    }
+    fetchCaptcha() // 网络异常也刷新一下
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+<style scoped>
+.login-container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-box {
+  width: 400px;
+  padding: 40px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.login-box h2 {
+  margin-bottom: 20px; 
+  color: #333;
+}
+
+.input-item {
+  margin-bottom: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* ⚠️ 新增：验证码容器样式 */
+.captcha-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.captcha-input {
+  width: 55%;
+}
+
+.captcha-img {
+  width: 40%;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  box-sizing: border-box;
+  background-color: #f5f7fa;
+}
+
+.login-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+</style>
+
+--- File: G:\DevEnv\Project\lab-system-frontend\src\views\StudentHome.vue ---
+<template>
+  <div class="home-container">
+    <div class="header">
+      <h2>实验教学管理系统 - 学生端（欢迎你，{{ loginUser ? loginUser.name : '' }}）</h2>
+      <div style="display: flex; align-items: center;">
+        <el-badge :is-dot="hasUnread" style="margin-right: 20px; cursor: pointer;" @click="openNoticeDrawer">
+          <el-icon :size="22" color="#409EFF"><Bell /></el-icon>
+        </el-badge>
+        <el-button type="warning" size="small" @click="openPwdDialog" style="margin-right: 15px;">修改密码</el-button>
+        <el-button type="danger" size="small" @click="logout">退出登录</el-button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <el-tabs v-model="activeTab" class="demo-tabs" @tab-change="handleTabChange">
+        
+        <!-- 标签页 1：可预约的实验场次 -->
+        <el-tab-pane label="可预约的实验场次" name="all-sessions">
+          <el-table v-if="!isMobile" :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
+            <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
+            <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
+            <el-table-column prop="teacherName" label="指导教师" width="100" align="center" />
+            <el-table-column label="上课时间" align="center">
+              <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
+            </el-table-column>
+            <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
+              <template #default="scope">
+                <el-tag :type="scope.row.remainingSeats > 0 ? 'success' : 'danger'">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="实验指导书" width="130" align="center">
+              <template #default="scope">
+                <a v-if="scope.row.guideFile" :href="'/api/report/download/' + scope.row.guideFile" target="_blank" style="color: #409EFF; text-decoration: underline;">下载指导书</a>
+                <span v-else style="color: gray;">暂无</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" align="center">
+              <template #default="scope">
+                <el-button type="primary" size="small" :disabled="scope.row.remainingSeats <= 0" @click="handleBook(scope.row.sessionNo)">预约</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          
+          <div v-else class="mobile-card-list" v-loading="loading">
+            <el-card v-for="item in paginatedSessionList" :key="item.sessionNo" class="mobile-card">
+              <div class="card-header">
+                <span class="project-name">{{ item.projectName }}</span>
+                <el-tag :type="item.remainingSeats > 0 ? 'success' : 'danger'" size="small">
+                  剩余: {{ item.remainingSeats }} / {{ item.capacity }}
+                </el-tag>
+              </div>
+              <div class="card-body">
+                <p><strong>场次号：</strong> {{ item.sessionNo }}</p>
+                <p><strong>教师：</strong> {{ item.teacherName }}</p>
+                <p><strong>时间：</strong> {{ formatTeachingTime(item) }}</p>
+              </div>
+              <div class="card-footer">
+                <a v-if="item.guideFile" :href="'/api/report/download/' + item.guideFile" target="_blank" class="download-link">下载指导书</a>
+                <span v-else class="no-file">暂无指导书</span>
+                <el-button type="primary" size="small" :disabled="item.remainingSeats <= 0" @click="handleBook(item.sessionNo)">预约</el-button>
+              </div>
+            </el-card>
+          </div>
+
+          <el-pagination 
+            v-model:current-page="sessionPage" 
+            v-model:page-size="pageSize" 
+            :page-sizes="[5, 10, 20, 50]" 
+            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" 
+            :total="sessionList.length" 
+            style="margin-top: 15px; justify-content: center;" 
+          />
+        </el-tab-pane>
+
+        <!-- 标签页 2：我的预约记录 -->
+        <el-tab-pane label="我的预约记录" name="my-bookings">
+          <el-table v-if="!isMobile" :data="paginatedBookingList" border style="width: 100%" v-loading="bookingLoading">
+            <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
+            <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
+            <el-table-column prop="teacherName" label="指导教师" width="100" align="center" />
+            <el-table-column label="上课时间" align="center">
+              <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
+            </el-table-column>
+            <el-table-column label="指导书" width="120" align="center">
+              <template #default="scope">
+                <a v-if="scope.row.guideFile" :href="'/api/report/download/' + scope.row.guideFile" target="_blank" style="color: #409EFF; text-decoration: underline;">下载</a>
+                <span v-else style="color: gray;">暂无</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="成绩" width="100" align="center">
+              <template #default="scope">
+                <span v-if="scope.row.score !== null && scope.row.score !== undefined" style="color: red; font-weight: bold; font-size: 16px;">{{ scope.row.score }} 分</span>
+                <span v-else style="color: gray;">未批阅</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="教师评语" width="150" align="center">
+              <template #default="scope">
+                <span v-if="scope.row.comment">{{ scope.row.comment }}</span>
+                <span v-else style="color: gray;">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="260" align="center">
+              <template #default="scope">
+                <el-button type="success" size="small" @click="openUploadDialog(scope.row)">上传报告</el-button>
+                <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 10px;">版本历史</el-button>
+                <el-button v-if="!scope.row.isGraded" type="danger" size="small" @click="cancelBooking(scope.row.bookingNo)">取消预约</el-button>
+                <el-tag v-else type="info" effect="plain">已批阅</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div v-else class="mobile-card-list" v-loading="bookingLoading">
+            <el-card v-for="item in paginatedBookingList" :key="item.bookingNo" class="mobile-card">
+              <div class="card-header">
+                <span class="project-name">{{ item.projectName }}</span>
+                <el-tag v-if="item.score !== null && item.score !== undefined" type="danger" size="small">得分: {{ item.score }}</el-tag>
+                <el-tag v-else type="info" size="small">未批阅</el-tag>
+              </div>
+              <div class="card-body">
+                <p><strong>场次号：</strong> {{ item.sessionNo }}</p>
+                <p><strong>教师：</strong> {{ item.teacherName }}</p>
+                <p><strong>时间：</strong> {{ formatTeachingTime(item) }}</p>
+                <p v-if="item.comment"><strong>评语：</strong> {{ item.comment }}</p>
+              </div>
+              <div class="card-footer" style="justify-content: flex-start; gap: 10px;">
+                <a v-if="item.guideFile" :href="'/api/report/download/' + item.guideFile" target="_blank" class="download-link">下载指导书</a>
+                <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
+                <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
+                <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
+              </div>
+            </el-card>
+          </div>
+
+          <el-pagination 
+            v-model:current-page="bookingPage" 
+            v-model:page-size="pageSize" 
+            :page-sizes="[5, 10, 20, 50]" 
+            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" 
+            :total="myBookingList.length" 
+            style="margin-top: 15px; justify-content: center;" 
+          />
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 弹窗群 -->
+    <el-dialog v-model="uploadDialogVisible" title="上传实验报告" :width="isMobile ? '90%' : '400px'">
+      <div style="text-align: center;">
+        <p>正在为 <strong>{{ uploadProjectName }}</strong> 提交报告</p>
+        <el-upload class="upload-demo" drag action="#" :auto-upload="false" :on-change="handleFileChange" :limit="1">
+          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+          <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+        </el-upload>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="uploadDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitUpload" :loading="uploading">确认上传</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="historyDialogVisible" title="实验报告历史版本" :width="isMobile ? '95%' : '700px'">
+      <el-table :data="historyList" border style="width: 100%">
+        <el-table-column prop="version" label="版本" width="80" align="center">
+          <template #default="scope">第 {{ scope.row.version }} 版</template>
+        </el-table-column>
+        <el-table-column prop="submitTime" label="提交时间" align="center">
+           <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
+        </el-table-column>
+        <el-table-column label="文件操作" align="center">
+           <template #default="scope"><a :href="'/api/report/download/' + scope.row.fileUrl" target="_blank" style="color: #409EFF; text-decoration: underline;">点击下载</a></template>
+        </el-table-column>
+        <el-table-column prop="score" label="得分" width="80" align="center">
+           <template #default="scope"><span v-if="scope.row.score !== null" style="color: red;">{{ scope.row.score }}</span><span v-else style="color: gray;">-</span></template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <el-dialog v-model="pwdDialog" title="修改密码" :width="isMobile ? '90%' : '400px'">
+      <el-form :model="pwdForm" label-width="80px">
+        <el-form-item label="原密码" required><el-input v-model="pwdForm.oldPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="新密码" required><el-input v-model="pwdForm.newPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="确认密码" required><el-input v-model="pwdForm.confirmPassword" type="password" show-password /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="pwdDialog = false">取消</el-button><el-button type="primary" @click="submitPwd">确认修改</el-button></template>
+    </el-dialog>
+
+    <el-drawer v-model="noticeDrawerVisible" title="我的通知" :size="isMobile ? '100%' : '400px'">
+      <el-empty v-if="noticeList.length === 0" description="暂无通知" />
+      <el-timeline v-else>
+        <el-timeline-item v-for="item in noticeList" :key="item.noticeId" :timestamp="formatTime(item.createTime)" placement="top" :type="item.publisherName === '管理员' ? 'danger' : 'primary'">
+          <el-card shadow="hover">
+            <h4 style="margin: 0 0 10px 0; color: #333;">{{ item.title }}</h4>
+            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">{{ item.content }}</p>
+            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999;">发布人：{{ item.publisherName }}</div>
+          </el-card>
+        </el-timeline-item>
+      </el-timeline>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import request from '../utils/request' // ⚠️ 引入封装，自动带 Token
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { UploadFilled, Bell } from '@element-plus/icons-vue'
+
+const router = useRouter()
+const loginUser = JSON.parse(localStorage.getItem('loginUser'))
+// 虽然保留了这个变量，但在核心接口请求里我们不再依赖它作为安全凭证
+const currentStudentNo = loginUser ? loginUser.studentNo : ''
+if (!currentStudentNo) router.push('/')
+
+const screenWidth = ref(window.innerWidth)
+const isMobile = computed(() => screenWidth.value < 768)
+const handleResize = () => { screenWidth.value = window.innerWidth }
+
+onMounted(() => { 
+  window.addEventListener('resize', handleResize)
+  fetchSessions(); 
+  fetchNotices() 
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+
+const activeTab = ref('all-sessions')
+const sessionList = ref([])
+const loading = ref(false)
+const myBookingList = ref([])
+const bookingLoading = ref(false)
+
+const sessionPage = ref(1)
+const bookingPage = ref(1)
+const pageSize = ref(10)
+
+const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage.value - 1) * pageSize.value, sessionPage.value * pageSize.value))
+const paginatedBookingList = computed(() => myBookingList.value.slice((bookingPage.value - 1) * pageSize.value, bookingPage.value * pageSize.value))
+
+const uploadDialogVisible = ref(false)
+const uploading = ref(false)
+const uploadFile = ref(null)
+const uploadProjectNo = ref('')
+const uploadProjectName = ref('')
+
+const historyDialogVisible = ref(false)
+const historyList = ref([])
+
+const pwdDialog = ref(false)
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+const noticeDrawerVisible = ref(false)
+const noticeList = ref([])
+const hasUnread = ref(false)
+
+const fetchNotices = async () => {
+  try {
+    const res = await request.get('/notice/list?role=student')
+    if (res.code === 200) {
+      noticeList.value = res.data
+      if (noticeList.value.length > 0) {
+        const latestTime = new Date(noticeList.value[0].createTime).getTime()
+        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
+        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
+        hasUnread.value = latestTime > lastReadTime
+      }
+    }
+  } catch (e) {}
+}
+
+const openNoticeDrawer = () => {
+  noticeDrawerVisible.value = true
+  hasUnread.value = false
+  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime)
+}
+
+const handleTabChange = (name) => { if (name === 'my-bookings') fetchMyBookings(); else fetchSessions() }
+
+const fetchSessions = async () => { 
+  loading.value = true; 
+  try { 
+    const res = await request.get('/student/session/list'); 
+    if (res.code === 200) sessionList.value = res.data 
+  } finally { 
+    loading.value = false 
+  } 
+}
+
+// ⚠️ 核心改动：去掉 studentNo 参数！
+const fetchMyBookings = async () => { 
+  bookingLoading.value = true; 
+  try { 
+    const res = await request.get('/student/my-bookings'); 
+    if (res.code === 200) myBookingList.value = res.data 
+  } finally { 
+    bookingLoading.value = false 
+  } 
+}
+
+const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`; }
+const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
+
+// ⚠️ 核心改动：去掉 studentNo 参数！
+const handleBook = async (sessionNo) => { 
+  try { 
+    const res = await request.post(`/student/book?sessionNo=${sessionNo}`); 
+    if (res.code === 200) { ElMessage.success('预约成功！'); fetchSessions() } 
+    else { ElMessage.warning(res.msg) } 
+  } catch (error) { ElMessage.error('预约失败！') } 
+}
+
+const cancelBooking = async (bookingNo) => { 
+  try { 
+    await ElMessageBox.confirm('确定要取消该场次的预约吗？', '提示', { type: 'warning' }); 
+    const res = await request.post(`/student/cancel?bookingNo=${bookingNo}`); 
+    if (res.code === 200) { ElMessage.success('取消预约成功！'); fetchMyBookings(); fetchSessions() } 
+    else { ElMessage.error(res.msg) } 
+  } catch (e) {} 
+}
+
+const openUploadDialog = (row) => { uploadProjectNo.value = row.projectNo; uploadProjectName.value = row.projectName; uploadFile.value = null; uploadDialogVisible.value = true }
+const handleFileChange = (file) => { uploadFile.value = file.raw }
+
+const submitUpload = async () => { 
+  if (!uploadFile.value) return ElMessage.warning('请先选择文件！'); 
+  uploading.value = true; 
+  const formData = new FormData(); 
+  formData.append('file', uploadFile.value); 
+  // 注意：上传报告接口如果还是 ReportController 里那个，且没改，就还得传 studentNo。
+  // 如果你把 ReportController 的 upload 接口也改了（从 Token 拿），这里也要删掉。
+  formData.append('studentNo', currentStudentNo); 
+  formData.append('projectNo', uploadProjectNo.value); 
+  try { 
+    const res = await request.post('/report/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); 
+    if (res.code === 200) { ElMessage.success(res.data); uploadDialogVisible.value = false; fetchMyBookings() } 
+    else { ElMessage.error(res.msg) } 
+  } catch (error) { ElMessage.error('上传失败，请检查后端！') } 
+  finally { uploading.value = false } 
+}
+
+const openHistory = async (row) => { 
+  try { 
+    // 这里的 my-versions 接口在 ReportController 里，如果没改，保留 studentNo
+    const res = await request.get(`/report/my-versions?studentNo=${currentStudentNo}&projectNo=${row.projectNo}`); 
+    if (res.code === 200) { historyList.value = res.data; historyDialogVisible.value = true } 
+  } catch (error) { ElMessage.error('获取版本历史失败！') } 
+}
+
+const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
+
+// ⚠️ 核心改动：去掉 studentNo 参数！
+const submitPwd = async () => { 
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value; 
+  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！'); 
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！'); 
+  try { 
+    const res = await request.post('/student/update-password', null, { params: { oldPwd: oldPassword, newPwd: newPassword } }); 
+    if (res.code === 200) { 
+      ElMessage.success('修改成功，请重新登录！'); 
+      pwdDialog.value = false; 
+      setTimeout(() => { 
+        localStorage.removeItem('loginUser'); 
+        localStorage.removeItem('token'); 
+        router.push('/') 
+      }, 1000) 
+    } else { ElMessage.error(res.msg) } 
+  } catch (error) { ElMessage.error('网络错误，修改失败！') } 
+}
+
+const logout = () => { 
+  localStorage.removeItem('loginUser'); 
+  localStorage.removeItem('token'); 
+  router.push('/') 
+}
+</script>
+
+<style scoped>
+.home-container { min-height: 100vh; background-color: #f5f7fa; }
+.header { background-color: #fff; height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.header h2 { margin: 0; color: #333; }
+.main-content { padding: 40px; max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); margin-top: 20px;}
+
+/* 📱 手机端卡片与响应式样式 */
+.mobile-card-list { display: flex; flex-direction: column; gap: 15px; }
+.mobile-card { border-radius: 8px; margin-bottom: 0; }
+.card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ebeef5; padding-bottom: 10px; margin-bottom: 10px; }
+.project-name { font-weight: bold; font-size: 16px; color: #303133; flex: 1; }
+.card-body p { margin: 5px 0; font-size: 14px; color: #606266; line-height: 1.5; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ebeef5; flex-wrap: wrap; }
+.download-link { color: #409EFF; text-decoration: underline; font-size: 14px; }
+.no-file { color: #909399; font-size: 14px; }
+
+@media screen and (max-width: 768px) {
+  .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .header h2 { font-size: 16px; }
+  .header > div { width: 100%; justify-content: flex-end; }
+  .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }
+  .el-tabs__nav-wrap::after { display: none; }
+  .el-pagination { justify-content: center !important; flex-wrap: wrap; }
+}
+</style>
+
+--- File: G:\DevEnv\Project\lab-system-frontend\src\views\TeacherHome.vue ---
+<template>
+  <div class="home-container">
+    <div class="header">
+      <h2>实验教学管理系统 - 教师端（欢迎你，{{ loginUser ? loginUser.name : '' }}）</h2>
+      <div class="header-actions">
+        <el-badge :is-dot="hasUnread" style="margin-right: 15px; cursor: pointer;" @click="openNoticeDrawer">
+          <el-icon :size="22" color="#409EFF"><Bell /></el-icon>
+        </el-badge>
+        <el-button type="primary" size="small" @click="openPublishDialog" style="margin-right: 10px;">发布通知</el-button>
+        <el-button type="warning" size="small" @click="openPwdDialog" style="margin-right: 10px;">修改密码</el-button>
+        <el-button type="danger" size="small" @click="logout">退出登录</el-button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+
+        <!-- 1. 我负责的场次 -->
+        <el-tab-pane label="我负责的场次" name="sessions">
+          <div class="table-responsive">
+            <el-table :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
+              <el-table-column prop="projectName" label="实验项目名称" width="200" align="center" />
+              <el-table-column label="上课时间" align="center" min-width="180">
+                <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
+              </el-table-column>
+              <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
+                <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="200" align="center">
+                <template #default="scope">
+                  <el-button type="primary" size="small" @click="viewBookings(scope.row)">预约名单</el-button>
+                  <el-button type="success" size="small" @click="openReports(scope.row)">批阅报告</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="sessionList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 2. 实验项目管理 -->
+        <el-tab-pane label="实验项目管理" name="projects">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddProject">发布新实验项目</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedProjectList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="projectNo" label="项目号" width="120" align="center" />
+              <el-table-column prop="projectName" label="项目名称" width="180" align="center" />
+              <el-table-column prop="courseNo" label="所属课程" width="120" align="center" />
+              <el-table-column prop="hours" label="学时" width="80" align="center" />
+              <el-table-column prop="standard" label="考核标准" width="180" align="center" />
+              <el-table-column label="实验指导书" width="150" align="center">
+                <template #default="scope">
+                  <el-upload action="#" :auto-upload="false" :show-file-list="false" :on-change="(file) => handleGuideUpload(file, scope.row.projectNo)">
+                    <el-button type="primary" size="small" plain>
+                      {{ scope.row.guideFile ? '重新上传' : '上传指导书' }}
+                    </el-button>
+                  </el-upload>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="projectPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="projectList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 3. 安排实验场次 -->
+        <el-tab-pane label="安排实验场次" name="schedule">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddSession">安排新场次</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
+              <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
+              <el-table-column label="上课时间" align="center" min-width="180">
+                <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
+              </el-table-column>
+              <el-table-column prop="capacity" label="总容量" width="100" align="center" />
+              <el-table-column label="操作" width="120" align="center">
+                <template #default="scope"><el-button type="danger" size="small" @click="deleteSession(scope.row.sessionNo)">取消排课</el-button></template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="sessionList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 4. 成绩管理 -->
+        <el-tab-pane label="成绩管理" name="scores">
+          <div style="margin-bottom: 15px;">
+            <el-select v-model="selectedCourseNo" placeholder="请选择课程" :style="{ width: isMobile ? '100%' : '300px' }" @change="fetchCourseScores">
+              <el-option v-for="c in courseOptions" :key="c.courseNo" :label="c.courseNo + ' - ' + c.courseName" :value="c.courseNo" />
+            </el-select>
+          </div>
+          <div class="table-responsive">
+            <el-table :data="paginatedScoreList" border style="width: 100%" v-loading="loading" v-if="selectedCourseNo">
+              <el-table-column prop="studentNo" label="学号" width="150" align="center" />
+              <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
+              <el-table-column label="平时成绩 (30%)" width="150" align="center">
+                <template #default="scope"><el-input-number v-model="scope.row.score" :min="0" :max="100" size="small" /></template>
+              </el-table-column>
+              <el-table-column label="报告均分 (70%)" width="120" align="center">
+                <template #default="scope"><span style="color: #409EFF; font-weight: bold;">{{ scope.row.reportScore }}</span></template>
+              </el-table-column>
+              <el-table-column label="总评成绩" width="120" align="center">
+                <template #default="scope"><span style="color: red; font-weight: bold; font-size: 16px;">{{ scope.row.totalScore }}</span></template>
+              </el-table-column>
+              <el-table-column label="操作" width="120" align="center">
+                <template #default="scope"><el-button type="primary" size="small" @click="saveScore(scope.row.studentNo)">保存</el-button></template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-if="selectedCourseNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="scoreList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 5. 数据报表 -->
+        <el-tab-pane label="数据报表" name="stats">
+          <el-row :gutter="20">
+            <el-col :xs="24" :sm="12" style="margin-bottom: 20px;">
+              <el-card shadow="hover">
+                <div style="font-weight: bold; margin-bottom: 15px; text-align: center;">成绩分布</div>
+                <div ref="scoreChartRef" style="height: 300px;"></div>
+              </el-card>
+            </el-col>
+            <el-col :xs="24" :sm="12">
+              <el-card shadow="hover">
+                <div style="font-weight: bold; margin-bottom: 15px; text-align: center;">实验开出率</div>
+                <div ref="rateChartRef" style="height: 300px;"></div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 弹窗群 (全部改成响应式宽度) -->
+    <el-dialog v-model="bookingDialogVisible" title="学生预约名单" :width="isMobile ? '95%' : '60%'">
+      <div class="table-responsive">
+        <el-table :data="studentList" border style="width: 100%">
+          <el-table-column prop="studentNo" label="学号" width="120" align="center" />
+          <el-table-column prop="name" label="姓名" width="100" align="center" />
+          <el-table-column prop="className" label="班级" width="120" align="center" />
+          <el-table-column prop="bookingTime" label="预约时间" align="center" min-width="150">
+             <template #default="scope">{{ formatTime(scope.row.bookingTime) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="reportDialogVisible" title="实验报告批阅" :width="isMobile ? '95%' : '80%'">
+      <div class="table-responsive">
+        <el-table :data="reportList" border style="width: 100%">
+          <el-table-column prop="studentName" label="姓名" width="90" align="center" />
+          <el-table-column prop="className" label="班级" width="110" align="center" />
+          <el-table-column prop="submitTime" label="提交时间" width="150" align="center">
+            <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
+          </el-table-column>
+          <el-table-column label="报告文件" width="120" align="center">
+            <template #default="scope"><a :href="'/api/report/download/' + scope.row.fileUrl" target="_blank" style="color: #409EFF; text-decoration: underline;">点击下载</a></template>
+          </el-table-column>
+          <el-table-column label="分数" width="80" align="center">
+             <template #default="scope">{{ scope.row.score !== null ? scope.row.score : '未批阅' }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" align="center">
+            <template #default="scope"><el-button type="warning" size="small" @click="gradeReport(scope.row)">批阅</el-button></template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="projectDialog" title="发布新实验项目" :width="isMobile ? '95%' : '500px'">
+      <el-form :model="newProject" label-width="100px">
+        <el-form-item label="项目号" required><el-input v-model="newProject.projectNo" placeholder="如：P003" /></el-form-item>
+        <el-form-item label="项目名称" required><el-input v-model="newProject.projectName" /></el-form-item>
+        <el-form-item label="所属课程" required>
+          <el-select v-model="newProject.courseNo" placeholder="请选择课程" style="width: 100%">
+            <el-option v-for="c in courseOptions" :key="c.courseNo" :label="c.courseNo + ' - ' + c.courseName" :value="c.courseNo" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="学时"><el-input-number v-model="newProject.hours" :min="1" /></el-form-item>
+        <el-form-item label="考核标准"><el-input v-model="newProject.standard" type="textarea" :rows="2" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="projectDialog = false">取消</el-button><el-button type="primary" @click="submitAddProject">确认发布</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
+      <el-form :model="newSession" label-width="80px">
+        <el-form-item label="场次号" required><el-input v-model="newSession.sessionNo" placeholder="如：S003" /></el-form-item>
+        <el-form-item label="实验项目" required>
+          <el-select v-model="newSession.projectNo" placeholder="请选择项目" style="width: 100%">
+            <el-option v-for="p in projectList" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="实验室" required>
+          <el-select v-model="newSession.roomNo" placeholder="请选择实验室" style="width: 100%" @change="handleLabChange">
+            <el-option v-for="r in labOptions" :key="r.roomNo" :label="r.roomNo + ' - ' + r.roomName" :value="r.roomNo" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="学期" required>
+          <el-select v-model="newSession.semester" style="width: 100%" placeholder="请选择学期">
+            <el-option v-for="s in semesterOptions" :key="s.semesterName" :label="s.semesterName" :value="s.semesterName" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="周次" required><el-input-number v-model="newSession.weekNum" :min="1" :max="30" /><span style="margin-left:10px; color:gray;">周</span></el-form-item>
+        <el-form-item label="星期" required>
+          <el-select v-model="newSession.dayOfWeek" style="width: 100%">
+            <el-option label="星期一" :value="1" /><el-option label="星期二" :value="2" /><el-option label="星期三" :value="3" />
+            <el-option label="星期四" :value="4" /><el-option label="星期五" :value="5" /><el-option label="星期六" :value="6" /><el-option label="星期日" :value="7" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="节次" required>
+          <el-select v-model="newSession.period" style="width: 100%">
+            <el-option label="1-2节 (08:00)" value="1-2节" /><el-option label="3-4节 (10:00)" value="3-4节" />
+            <el-option label="5-6节 (14:00)" value="5-6节" /><el-option label="7-8节 (16:00)" value="7-8节" /><el-option label="9-10节 (19:00)" value="9-10节" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="容量(机位)" required>
+          <el-input-number v-model="newSession.capacity" :min="1" :max="selectedLabCapacity" />
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="sessionDialog = false">取消</el-button><el-button type="primary" @click="submitAddSession">确认排课</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="pwdDialog" title="修改密码" :width="isMobile ? '95%' : '400px'">
+      <el-form :model="pwdForm" label-width="80px">
+        <el-form-item label="原密码" required><el-input v-model="pwdForm.oldPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="新密码" required><el-input v-model="pwdForm.newPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="确认密码" required><el-input v-model="pwdForm.confirmPassword" type="password" show-password /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="pwdDialog = false">取消</el-button><el-button type="primary" @click="submitPwd">确认修改</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="publishDialogVisible" title="发布通知" :width="isMobile ? '95%' : '500px'">
+      <el-form :model="noticeForm" label-width="80px">
+        <el-form-item label="通知标题" required><el-input v-model="noticeForm.title" /></el-form-item>
+        <el-form-item label="通知内容" required><el-input v-model="noticeForm.content" type="textarea" :rows="4" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="publishDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitPublish">发布</el-button>
+      </template>
+    </el-dialog>
+
+    <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
+      <el-empty v-if="noticeList.length === 0" description="暂无通知" />
+      <el-timeline v-else>
+        <el-timeline-item v-for="item in noticeList" :key="item.noticeId" :timestamp="formatTime(item.createTime)" placement="top">
+          <el-card shadow="hover">
+            <h4 style="margin: 0 0 10px 0; color: #333;">{{ item.title }}</h4>
+            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">{{ item.content }}</p>
+            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999;">发布人：{{ item.publisherName }}</div>
+          </el-card>
+        </el-timeline-item>
+      </el-timeline>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed, nextTick, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
+import request from '../utils/request' // ⚠️ 核心：换成我们的封装，自动带 Token
+import { ElMessage, ElMessageBox } from 'element-plus'
+import * as echarts from 'echarts'
+import { Bell } from '@element-plus/icons-vue'
+
+const router = useRouter()
+const loginUser = JSON.parse(localStorage.getItem('loginUser'))
+const workNo = loginUser ? loginUser.workNo : ''
+if (!workNo) router.push('/')
+
+// ⚠️ 新增：响应式判断
+const screenWidth = ref(window.innerWidth)
+const isMobile = computed(() => screenWidth.value < 768)
+const handleResize = () => { screenWidth.value = window.innerWidth }
+
+const activeTab = ref('sessions')
+const loading = ref(false)
+
+const sessionList = ref([])
+const projectList = ref([])
+const courseOptions = ref([])
+const labOptions = ref([])
+const semesterOptions = ref([])
+const scoreList = ref([])
+
+const sessionPage = ref(1)
+const projectPage = ref(1)
+const scorePage = ref(1)
+const pageSize = ref(10)
+
+const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage.value - 1) * pageSize.value, sessionPage.value * pageSize.value))
+const paginatedProjectList = computed(() => projectList.value.slice((projectPage.value - 1) * pageSize.value, projectPage.value * pageSize.value))
+const paginatedScoreList = computed(() => scoreList.value.slice((scorePage.value - 1) * pageSize.value, scorePage.value * pageSize.value))
+
+const selectedCourseNo = ref('')
+const bookingDialogVisible = ref(false)
+const studentList = ref([])
+const reportDialogVisible = ref(false)
+const reportList = ref([])
+
+const projectDialog = ref(false)
+const newProject = ref({ projectNo: '', projectName: '', courseNo: '', hours: 2, standard: '' })
+
+const sessionDialog = ref(false)
+const newSession = ref({ sessionNo: '', projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
+const selectedLabCapacity = ref(100)
+
+const pwdDialog = ref(false)
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+const publishDialogVisible = ref(false)
+const noticeForm = ref({ title: '', content: '' })
+const noticeDrawerVisible = ref(false)
+const noticeList = ref([])
+const hasUnread = ref(false)
+
+const scoreChartRef = ref(null)
+const rateChartRef = ref(null)
+let scoreChart = null
+let rateChart = null
+
+onMounted(() => {
+  fetchSessions(); fetchProjects(); fetchCourses(); fetchLabs(); fetchSemesters(); fetchNotices();
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  if (scoreChart) scoreChart.dispose()
+  if (rateChart) rateChart.dispose()
+})
+
+const handleTabChange = (name) => {
+  if (name === 'stats') nextTick(() => renderCharts())
+}
+
+// ⚠️ 改造：去掉 workNo 参数，后端从 Token 解析 currentUserNo
+const fetchSessions = async () => {
+  loading.value = true;
+  try {
+    const res = await request.get(`/teacher/my-sessions`);
+    if (res.code === 200) sessionList.value = res.data
+  } finally {
+    loading.value = false
+  }
+}
+const fetchProjects = async () => { try { const res = await request.get('/teacher/project/list'); if (res.code === 200) projectList.value = res.data } catch (e) {} }
+const fetchCourses = async () => { try { const res = await request.get('/admin/courses'); if (res.code === 200) courseOptions.value = res.data } catch (e) {} }
+const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
+const fetchSemesters = async () => {
+  try {
+    const res = await request.get('/teacher/semesters');
+    if (res.code === 200) {
+      semesterOptions.value = res.data
+      if (semesterOptions.value.length > 0 && !newSession.value.semester) newSession.value.semester = semesterOptions.value[0].semesterName
+    }
+  } catch (e) {}
+}
+
+const fetchNotices = async () => {
+  try {
+    const res = await request.get('/notice/list?role=teacher')
+    if (res.code === 200) {
+      noticeList.value = res.data
+      if (noticeList.value.length > 0) {
+        const latestTime = new Date(noticeList.value[0].createTime).getTime()
+        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
+        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
+        hasUnread.value = latestTime > lastReadTime
+      }
+    }
+  } catch (e) {}
+}
+
+const openNoticeDrawer = () => { noticeDrawerVisible.value = true; hasUnread.value = false; if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime) }
+const openPublishDialog = () => { noticeForm.value = { title: '', content: '' }; publishDialogVisible.value = true }
+
+const submitPublish = async () => {
+  if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
+  try {
+    const res = await request.post('/notice/publish', null, {
+      params: { title: noticeForm.value.title, content: noticeForm.value.content, publisherName: loginUser ? loginUser.name : '老师', targetRole: 'student' }
+    })
+    if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
+  } catch (e) { ElMessage.error('发布失败') }
+}
+
+const renderCharts = async () => {
+  if (scoreChartRef.value) {
+    if (!scoreChart) scoreChart = echarts.init(scoreChartRef.value)
+    const res = await request.get('/teacher/stats/score-distribution')
+    if (res.code === 200) {
+      const data = res.data
+      scoreChart.setOption({
+        tooltip: { trigger: 'item' }, legend: { top: 'bottom' },
+        series: [{ name: '成绩分布', type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false, itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }, label: { show: false, position: 'center' }, emphasis: { label: { show: true, fontSize: 20, fontWeight: 'bold' } }, labelLine: { show: false },
+            data: [{ value: data['优秀'], name: '优秀 (90-100)', itemStyle: { color: '#67C23A' } }, { value: data['良好'], name: '良好 (80-89)', itemStyle: { color: '#409EFF' } }, { value: data['中等'], name: '中等 (70-79)', itemStyle: { color: '#E6A23C' } }, { value: data['及格'], name: '及格 (60-69)', itemStyle: { color: '#909399' } }, { value: data['不及格'], name: '不及格 (<60)', itemStyle: { color: '#F56C6C' } }]
+        }]
+      })
+    }
+  }
+  if (rateChartRef.value) {
+    if (!rateChart) rateChart = echarts.init(rateChartRef.value)
+    const res = await request.get('/teacher/stats/experiment-rate')
+    if (res.code === 200) {
+      const data = res.data
+      rateChart.setOption({
+        tooltip: { formatter: '{b}: {c}%' },
+        series: [{ type: 'gauge', startAngle: 180, endAngle: 0, min: 0, max: 100, splitNumber: 5, itemStyle: { color: '#409EFF' }, progress: { show: true, width: 18 }, pointer: { show: false }, axisLine: { lineStyle: { width: 18 } }, axisTick: { show: false }, splitLine: { length: 15, lineStyle: { width: 2, color: '#999' } }, axisLabel: { distance: 25, color: '#999', fontSize: 12 }, detail: { valueAnimation: true, formatter: '{value}%', color: '#409EFF', fontSize: 30, offsetCenter: [0, '40%'] }, data: [{ value: parseFloat(data.rate), name: `已开 ${data.opened} / 共 ${data.total} 个` }], title: { offsetCenter: [0, '70%'], fontSize: 14, color: '#666' } }]
+      })
+    }
+  }
+}
+
+const fetchCourseScores = async () => { if (!selectedCourseNo.value) return; loading.value = true; try { const res = await request.get(`/teacher/scores?courseNo=${selectedCourseNo.value}`); if (res.code === 200) scoreList.value = res.data } catch (e) { ElMessage.error('获取成绩单失败') } finally { loading.value = false } }
+const saveScore = async (studentNo) => { const row = scoreList.value.find(item => item.studentNo === studentNo); if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩'); try { const res = await request.post(`/teacher/score/save?studentNo=${studentNo}&courseNo=${selectedCourseNo.value}&dailyScore=${row.score}&workNo=${workNo}`); if (res.code === 200) { ElMessage.success(res.data); fetchCourseScores() } else { ElMessage.error(res.msg) } } catch (error) { ElMessage.error('保存失败') } }
+const handleLabChange = (roomNo) => { const lab = labOptions.value.find(r => r.roomNo === roomNo); if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity } }
+const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`; }
+const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
+
+const handleGuideUpload = async (file, projectNo) => { const rawFile = file.raw; if (!rawFile) return; const formData = new FormData(); formData.append('file', rawFile); formData.append('projectNo', projectNo); formData.append('workNo', workNo); try { const res = await request.post('/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); if (res.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.msg) } } catch (error) { ElMessage.error('上传失败！') } }
+const openAddProject = () => { newProject.value = { projectNo: '', projectName: '', courseNo: '', hours: 2, standard: '' }; projectDialog.value = true }
+const submitAddProject = async () => { if (!newProject.value.projectNo || !newProject.value.projectName || !newProject.value.courseNo) return ElMessage.warning('请填写完整信息！'); try { const res = await request.post('/teacher/project/add', newProject.value); if (res.code === 200) { ElMessage.success('发布成功！'); projectDialog.value = false; fetchProjects() } else { ElMessage.error(res.msg) } } catch (e) { ElMessage.error('请求失败') } }
+const openAddSession = () => { newSession.value = { sessionNo: '', projectNo: '', roomNo: '', semester: semesterOptions.value.length > 0 ? semesterOptions.value[0].semesterName : '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 }; selectedLabCapacity.value = 100; sessionDialog.value = true }
+const submitAddSession = async () => { if (!newSession.value.sessionNo || !newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) return ElMessage.warning('请填写完整信息！'); const payload = { ...newSession.value, workNo: workNo }; try { const res = await request.post('/teacher/session/add', payload); if (res.code === 200) { ElMessage.success('排课成功！'); sessionDialog.value = false; fetchSessions(); activeTab.value = 'sessions' } else { ElMessage.error(res.msg) } } catch (error) { ElMessage.error('排课失败！') } }
+const deleteSession = async (sessionNo) => { try { await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' }); const res = await request.delete(`/teacher/session/delete?sessionNo=${sessionNo}&workNo=${workNo}`); if (res.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.msg) } } catch (e) {} }
+const viewBookings = async (session) => { try { const res = await request.get(`/teacher/session-bookings?sessionNo=${session.sessionNo}`); if (res.code === 200) { studentList.value = res.data; bookingDialogVisible.value = true } } catch (error) {} }
+const openReports = async (session) => { try { const res = await request.get(`/report/list-by-project?projectNo=${session.projectNo}`); if (res.code === 200) { reportList.value = res.data; reportDialogVisible.value = true } } catch (error) {} }
+const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } } catch (error) {} }
+const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
+
+// ⚠️ 改造：修改密码不再传 workNo，后端从 Token 解析 currentUserNo
+const submitPwd = async () => {
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value;
+  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！');
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！');
+  try {
+    const res = await request.post('/teacher/update-password', null, {
+      params: { oldPwd: oldPassword, newPwd: newPassword }
+    });
+    if (res.code === 200) {
+      ElMessage.success('修改成功，请重新登录！');
+      pwdDialog.value = false;
+      setTimeout(() => {
+        localStorage.removeItem('loginUser');
+        localStorage.removeItem('token');
+        router.push('/')
+      }, 1000)
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，修改失败！')
+  }
+}
+const logout = () => { localStorage.removeItem('loginUser'); localStorage.removeItem('token'); router.push('/') }
+</script>
+
+<style scoped>
+.home-container { min-height: 100vh; background-color: #f5f7fa; }
+.header { background-color: #fff; height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.header h2 { margin: 0; color: #333; }
+.main-content { padding: 40px; max-width: 1300px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1); margin-top: 20px;}
+
+/* 📱 手机端适配核心样式 */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto; /* 手机端表格内部横向滑动，不破坏布局 */
+  -webkit-overflow-scrolling: touch;
+}
+
+@media screen and (max-width: 768px) {
+  .header {
+    padding: 10px 15px;
+    height: auto;
+    min-height: 60px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .header h2 { font-size: 16px; }
+  .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 10px;}
+  .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }
+  .el-tabs__nav-wrap::after { display: none; }
+  .el-pagination { justify-content: center !important; flex-wrap: wrap; }
+}
+</style>
+
+--- File: G:\DevEnv\Project\lab-system-frontend\src\views\AdminHome.vue ---
+<template>
+  <div class="home-container">
+    <div class="header">
+      <h2>实验教学管理系统 - 管理员端</h2>
+      <div class="header-actions">
+        <el-badge :is-dot="hasUnread" style="margin-right: 15px; cursor: pointer;" @click="openNoticeDrawer">
+          <el-icon :size="22" color="#409EFF"><Bell /></el-icon>
+        </el-badge>
+        <el-button type="primary" size="small" @click="openPublishDialog" style="margin-right: 10px;">发布通知</el-button>
+        <el-button type="warning" size="small" @click="openPwdDialog" style="margin-right: 10px;">修改密码</el-button>
+        <el-button type="danger" size="small" @click="logout">退出登录</el-button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <el-tabs v-model="activeTab">
+        
+        <!-- 1. 学生管理 -->
+        <el-tab-pane label="学生管理" name="students">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddStudent">新增学生</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedStudentList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="studentNo" label="学号" width="150" align="center" />
+              <el-table-column prop="name" label="姓名" width="120" align="center" />
+              <el-table-column prop="className" label="班级" min-width="150" align="center" />
+              <el-table-column prop="major" label="专业" min-width="150" align="center" />
+              <el-table-column label="操作" width="200" align="center">
+                <template #default="scope">
+                  <el-button type="warning" size="small" @click="resetPwd(scope.row.studentNo, 'student')">重置密码</el-button>
+                  <el-button type="danger" size="small" @click="deleteStudent(scope.row.studentNo)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="studentPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="studentList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 2. 教师管理 -->
+        <el-tab-pane label="教师管理" name="teachers">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddTeacher">新增教师</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedTeacherList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="workNo" label="工号" width="150" align="center" />
+              <el-table-column prop="name" label="姓名" width="120" align="center" />
+              <el-table-column prop="department" label="院系" min-width="180" align="center" />
+              <el-table-column prop="title" label="职称" width="120" align="center" />
+              <el-table-column label="操作" width="200" align="center">
+                <template #default="scope">
+                  <el-button type="warning" size="small" @click="resetPwd(scope.row.workNo, 'teacher')">重置密码</el-button>
+                  <el-button type="danger" size="small" @click="deleteTeacher(scope.row.workNo)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="teacherPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="teacherList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 3. 实验室管理 -->
+        <el-tab-pane label="实验室管理" name="labs">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddLab">新增实验室</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedLabList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="roomNo" label="实验室号" width="120" align="center" />
+              <el-table-column prop="roomName" label="实验室名称" min-width="180" align="center" />
+              <el-table-column prop="location" label="位置" min-width="150" align="center" />
+              <el-table-column prop="capacity" label="容量" width="100" align="center" />
+              <el-table-column label="操作" width="200" align="center">
+                <template #default="scope">
+                  <el-button type="primary" size="small" plain @click="openEquipDialog(scope.row)">设备管理</el-button>
+                  <el-button type="danger" size="small" @click="deleteLab(scope.row.roomNo)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="labPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="labList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 4. 课程管理 -->
+        <el-tab-pane label="课程管理" name="courses">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddCourse">新增课程</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedCourseList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="courseNo" label="课程号" width="150" align="center" />
+              <el-table-column prop="courseName" label="课程名" min-width="180" align="center" />
+              <el-table-column prop="credit" label="学分" width="100" align="center" />
+              <el-table-column prop="hours" label="学时" width="100" align="center" />
+              <el-table-column prop="semester" label="学期" min-width="150" align="center" />
+              <el-table-column label="操作" width="120" align="center">
+                <template #default="scope"><el-button type="danger" size="small" @click="deleteCourse(scope.row.courseNo)">删除</el-button></template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="coursePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="courseList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 5. 学期管理 -->
+        <el-tab-pane label="学期管理" name="semesters">
+          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddSemester">新增学期配置</el-button></div>
+          <div class="table-responsive">
+            <el-table :data="paginatedSemesterList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="semesterName" label="学期名称" min-width="180" align="center" />
+              <el-table-column prop="startDate" label="开学第一周(周一)" min-width="180" align="center" />
+              <el-table-column prop="totalWeeks" label="总周数" width="120" align="center" />
+              <el-table-column label="操作" width="120" align="center">
+                <template #default="scope"><el-button type="danger" size="small" @click="deleteSemester(scope.row.semesterName)">删除</el-button></template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="semesterPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="semesterList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+
+        <!-- 6. 系统操作日志 -->
+        <el-tab-pane label="系统操作日志" name="logs">
+          <div class="table-responsive">
+            <el-table :data="paginatedLogList" border style="width: 100%" v-loading="loading">
+              <el-table-column prop="id" label="日志ID" width="100" align="center" />
+              <el-table-column prop="operator" label="操作人" width="150" align="center" />
+              <el-table-column prop="action" label="操作动作" min-width="200" align="center">
+                <template #default="scope">
+                  <el-tag :type="scope.row.action.includes('删除') || scope.row.action.includes('取消') || scope.row.action.includes('失败') ? 'danger' : 'success'">
+                    {{ scope.row.action }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" label="操作时间" width="180" align="center">
+                <template #default="scope">{{ scope.row.createTime ? scope.row.createTime.replace('T', ' ').substring(0, 19) : '' }}</template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-pagination v-model:current-page="logPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="logList.length" style="margin-top: 15px; justify-content: center;" />
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+
+    <!-- 弹窗群 (响应式宽度) -->
+    <el-dialog v-model="studentDialog" title="新增学生" :width="isMobile ? '95%' : '400px'">
+      <el-form :model="newStudent" label-width="80px">
+        <el-form-item label="学号" required><el-input v-model="newStudent.studentNo" /></el-form-item>
+        <el-form-item label="姓名" required><el-input v-model="newStudent.name" /></el-form-item>
+        <el-form-item label="初始密码"><el-input v-model="newStudent.password" type="password" show-password placeholder="不填默认123456" /></el-form-item>
+        <el-form-item label="班级"><el-input v-model="newStudent.className" /></el-form-item>
+        <el-form-item label="专业"><el-input v-model="newStudent.major" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="studentDialog = false">取消</el-button><el-button type="primary" @click="submitAddStudent">确认</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="teacherDialog" title="新增教师" :width="isMobile ? '95%' : '400px'">
+      <el-form :model="newTeacher" label-width="80px">
+        <el-form-item label="工号" required><el-input v-model="newTeacher.workNo" /></el-form-item>
+        <el-form-item label="姓名" required><el-input v-model="newTeacher.name" /></el-form-item>
+        <el-form-item label="初始密码"><el-input v-model="newTeacher.password" type="password" show-password placeholder="不填默认123456" /></el-form-item>
+        <el-form-item label="院系"><el-input v-model="newTeacher.department" /></el-form-item>
+        <el-form-item label="职称"><el-input v-model="newTeacher.title" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="teacherDialog = false">取消</el-button><el-button type="primary" @click="submitAddTeacher">确认</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="labDialog" title="新增实验室" :width="isMobile ? '95%' : '400px'">
+      <el-form :model="newLab" label-width="100px">
+        <el-form-item label="实验室号" required><el-input v-model="newLab.roomNo" /></el-form-item>
+        <el-form-item label="实验室名称" required><el-input v-model="newLab.roomName" /></el-form-item>
+        <el-form-item label="位置"><el-input v-model="newLab.location" /></el-form-item>
+        <el-form-item label="容量(机位)"><el-input-number v-model="newLab.capacity" :min="1" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="labDialog = false">取消</el-button><el-button type="primary" @click="submitAddLab">确认</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="equipDialog" :title="'管理设备 - ' + (currentLab ? currentLab.roomName : '')" :width="isMobile ? '95%' : '600px'">
+      <div style="margin-bottom: 15px; text-align: right;">
+        <el-button type="primary" size="small" @click="openAddEquip">新增设备</el-button>
+      </div>
+      <div class="table-responsive">
+        <el-table :data="currentLabEquipList" border style="width: 100%">
+          <el-table-column prop="equipNo" label="设备号" width="120" align="center" />
+          <el-table-column prop="equipName" label="设备名称" min-width="150" align="center" />
+          <el-table-column prop="model" label="型号" min-width="120" align="center" />
+          <el-table-column prop="quantity" label="数量" width="80" align="center" />
+          <el-table-column label="操作" width="100" align="center">
+            <template #default="scope"><el-button type="danger" size="small" @click="deleteEquip(scope.row.equipNo)">删除</el-button></template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="addEquipDialog" title="新增设备" :width="isMobile ? '95%' : '400px'" append-to-body>
+      <el-form :model="newEquip" label-width="100px">
+        <el-form-item label="设备号" required><el-input v-model="newEquip.equipNo" /></el-form-item>
+        <el-form-item label="设备名称" required><el-input v-model="newEquip.equipName" /></el-form-item>
+        <el-form-item label="型号"><el-input v-model="newEquip.model" /></el-form-item>
+        <el-form-item label="数量"><el-input-number v-model="newEquip.quantity" :min="1" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="addEquipDialog = false">取消</el-button><el-button type="primary" @click="submitAddEquip">确认</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="courseDialog" title="新增课程" :width="isMobile ? '95%' : '400px'">
+      <el-form :model="newCourse" label-width="80px">
+        <el-form-item label="课程号" required><el-input v-model="newCourse.courseNo" /></el-form-item>
+        <el-form-item label="课程名" required><el-input v-model="newCourse.courseName" /></el-form-item>
+        <el-form-item label="学分"><el-input-number v-model="newCourse.credit" :min="0.5" :step="0.5" /></el-form-item>
+        <el-form-item label="学时"><el-input-number v-model="newCourse.hours" :min="1" /></el-form-item>
+        <el-form-item label="学期"><el-input v-model="newCourse.semester" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="courseDialog = false">取消</el-button><el-button type="primary" @click="submitAddCourse">确认</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="semesterDialog" title="新增学期配置" :width="isMobile ? '95%' : '450px'">
+      <el-form :model="newSemester" label-width="120px">
+        <el-form-item label="学期名称" required><el-input v-model="newSemester.semesterName" placeholder="如：2026-2027 上学期" /></el-form-item>
+        <el-form-item label="开学第一周" required><el-date-picker v-model="newSemester.startDate" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item>
+        <el-form-item label="总周数"><el-input-number v-model="newSemester.totalWeeks" :min="1" :max="30" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="semesterDialog = false">取消</el-button><el-button type="primary" @click="submitAddSemester">确认</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="pwdDialog" title="修改密码" :width="isMobile ? '95%' : '400px'">
+      <el-form :model="pwdForm" label-width="80px">
+        <el-form-item label="原密码" required><el-input v-model="pwdForm.oldPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="新密码" required><el-input v-model="pwdForm.newPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="确认密码" required><el-input v-model="pwdForm.confirmPassword" type="password" show-password /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="pwdDialog = false">取消</el-button><el-button type="primary" @click="submitPwd">确认修改</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="publishDialogVisible" title="发布通知" :width="isMobile ? '95%' : '500px'">
+      <el-form :model="noticeForm" label-width="80px">
+        <el-form-item label="通知标题" required><el-input v-model="noticeForm.title" /></el-form-item>
+        <el-form-item label="通知内容" required><el-input v-model="noticeForm.content" type="textarea" :rows="4" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="publishDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitPublish">发布</el-button>
+      </template>
+    </el-dialog>
+
+    <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
+      <el-empty v-if="noticeList.length === 0" description="暂无通知" />
+      <el-timeline v-else>
+        <el-timeline-item v-for="item in noticeList" :key="item.noticeId" :timestamp="formatTime(item.createTime)" placement="top">
+          <el-card shadow="hover">
+            <h4 style="margin: 0 0 10px 0; color: #333;">{{ item.title }}</h4>
+            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">{{ item.content }}</p>
+            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999;">发布人：{{ item.publisherName }}</div>
+          </el-card>
+        </el-timeline-item>
+      </el-timeline>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import request from '../utils/request' // ⚠️ 核心：换成我们的封装，自动带 Token
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Bell } from '@element-plus/icons-vue'
+
+const router = useRouter()
+const loginUser = JSON.parse(localStorage.getItem('loginUser'))
+const activeTab = ref('students')
+const loading = ref(false)
+
+// 响应式判断
+const screenWidth = ref(window.innerWidth)
+const isMobile = computed(() => screenWidth.value < 768)
+const handleResize = () => { screenWidth.value = window.innerWidth }
+
+// 数据列表
+const studentList = ref([])
+const teacherList = ref([])
+const labList = ref([])
+const courseList = ref([])
+const semesterList = ref([])
+const logList = ref([]) 
+const allEquipList = ref([])
+
+const studentPage = ref(1)
+const teacherPage = ref(1)
+const labPage = ref(1)
+const coursePage = ref(1)
+const semesterPage = ref(1)
+const logPage = ref(1)
+const pageSize = ref(10)
+
+const paginatedStudentList = computed(() => studentList.value.slice((studentPage.value - 1) * pageSize.value, studentPage.value * pageSize.value))
+const paginatedTeacherList = computed(() => teacherList.value.slice((teacherPage.value - 1) * pageSize.value, teacherPage.value * pageSize.value))
+const paginatedLabList = computed(() => labList.value.slice((labPage.value - 1) * pageSize.value, labPage.value * pageSize.value))
+const paginatedCourseList = computed(() => courseList.value.slice((coursePage.value - 1) * pageSize.value, coursePage.value * pageSize.value))
+const paginatedSemesterList = computed(() => semesterList.value.slice((semesterPage.value - 1) * pageSize.value, semesterPage.value * pageSize.value))
+const paginatedLogList = computed(() => logList.value.slice((logPage.value - 1) * pageSize.value, logPage.value * pageSize.value))
+
+const studentDialog = ref(false)
+const newStudent = ref({ studentNo: '', name: '', password: '', className: '', major: '' })
+const teacherDialog = ref(false)
+const newTeacher = ref({ workNo: '', name: '', password: '', department: '', title: '' })
+const labDialog = ref(false)
+const newLab = ref({ roomNo: '', roomName: '', location: '', capacity: 30 })
+const equipDialog = ref(false)
+const addEquipDialog = ref(false)
+const currentLab = ref(null)
+const newEquip = ref({ equipNo: '', equipName: '', model: '', quantity: 1, roomNo: '' })
+const courseDialog = ref(false)
+const newCourse = ref({ courseNo: '', courseName: '', credit: 2.0, hours: 32, semester: '' })
+const semesterDialog = ref(false)
+const newSemester = ref({ semesterName: '', startDate: '', totalWeeks: 20 })
+const pwdDialog = ref(false)
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+const publishDialogVisible = ref(false)
+const noticeForm = ref({ title: '', content: '' })
+const noticeDrawerVisible = ref(false)
+const noticeList = ref([])
+const hasUnread = ref(false)
+
+const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
+
+const currentLabEquipList = computed(() => {
+  if (!currentLab.value) return []
+  return allEquipList.value.filter(e => e.roomNo === currentLab.value.roomNo)
+})
+
+onMounted(() => { 
+  window.addEventListener('resize', handleResize)
+  fetchStudents(); fetchTeachers(); fetchLabs(); fetchCourses(); fetchSemesters(); fetchLogs(); fetchNotices(); 
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+
+// ================= 数据拉取 =================
+const fetchStudents = async () => { loading.value = true; try { const res = await request.get('/admin/students'); if (res.code === 200) studentList.value = res.data } finally { loading.value = false } }
+const fetchTeachers = async () => { loading.value = true; try { const res = await request.get('/admin/teachers'); if (res.code === 200) teacherList.value = res.data } finally { loading.value = false } }
+const fetchLabs = async () => { loading.value = true; try { const res = await request.get('/admin/labs'); if (res.code === 200) labList.value = res.data } finally { loading.value = false } }
+const fetchCourses = async () => { loading.value = true; try { const res = await request.get('/admin/courses'); if (res.code === 200) courseList.value = res.data } finally { loading.value = false } }
+const fetchSemesters = async () => { loading.value = true; try { const res = await request.get('/admin/semesters'); if (res.code === 200) semesterList.value = res.data } finally { loading.value = false } }
+const fetchLogs = async () => { loading.value = true; try { const res = await request.get('/admin/logs'); if (res.code === 200) logList.value = res.data } finally { loading.value = false } }
+const fetchAllEquipments = async () => { try { const res = await request.get('/admin/equipments'); if (res.code === 200) allEquipList.value = res.data } catch (e) {} }
+
+const fetchNotices = async () => {
+  try {
+    const res = await request.get('/notice/list?role=admin')
+    if (res.code === 200) {
+      noticeList.value = res.data
+      if (noticeList.value.length > 0) {
+        const latestTime = new Date(noticeList.value[0].createTime).getTime()
+        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
+        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
+        hasUnread.value = latestTime > lastReadTime
+      }
+    }
+  } catch (e) {}
+}
+
+const openNoticeDrawer = () => {
+  noticeDrawerVisible.value = true
+  hasUnread.value = false
+  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime)
+}
+
+const openPublishDialog = () => { noticeForm.value = { title: '', content: '' }; publishDialogVisible.value = true }
+
+const submitPublish = async () => {
+  if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
+  try {
+    const res = await request.post('/notice/publish', null, {
+      params: { title: noticeForm.value.title, content: noticeForm.value.content, publisherName: loginUser ? loginUser.name : '管理员', targetRole: 'all' }
+    })
+    if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
+  } catch (e) { ElMessage.error('发布失败') }
+}
+
+// ================= 学生操作 =================
+const openAddStudent = () => { newStudent.value = { studentNo: '', name: '', password: '', className: '', major: '' }; studentDialog.value = true }
+const submitAddStudent = async () => {
+  if (!newStudent.value.studentNo || !newStudent.value.name) return ElMessage.warning('学号和姓名不能为空！')
+  const res = await request.post('/admin/student/add', newStudent.value)
+  if (res.code === 200) { ElMessage.success(res.data); studentDialog.value = false; fetchStudents(); fetchLogs() } else { ElMessage.error(res.msg) }
+}
+const deleteStudent = async (no) => { try { await ElMessageBox.confirm('确定删除该学生？', '警告', { type: 'warning' }); const res = await request.delete(`/admin/student/delete?studentNo=${no}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchStudents(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
+
+// ================= 教师操作 =================
+const openAddTeacher = () => { newTeacher.value = { workNo: '', name: '', password: '', department: '', title: '' }; teacherDialog.value = true }
+const submitAddTeacher = async () => {
+  if (!newTeacher.value.workNo || !newTeacher.value.name) return ElMessage.warning('工号和姓名不能为空！')
+  const res = await request.post('/admin/teacher/add', newTeacher.value)
+  if (res.code === 200) { ElMessage.success(res.data); teacherDialog.value = false; fetchTeachers(); fetchLogs() } else { ElMessage.error(res.msg) }
+}
+const deleteTeacher = async (no) => { try { await ElMessageBox.confirm('确定删除该教师？', '警告', { type: 'warning' }); const res = await request.delete(`/admin/teacher/delete?workNo=${no}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchTeachers(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
+
+// ================= 实验室与设备操作 =================
+const openAddLab = () => { newLab.value = { roomNo: '', roomName: '', location: '', capacity: 30 }; labDialog.value = true }
+const submitAddLab = async () => {
+  if (!newLab.value.roomNo || !newLab.value.roomName) return ElMessage.warning('实验室号和名称不能为空！')
+  const res = await request.post('/admin/lab/add', newLab.value)
+  if (res.code === 200) { ElMessage.success(res.data); labDialog.value = false; fetchLabs(); fetchLogs() } else { ElMessage.error(res.msg) }
+}
+const deleteLab = async (no) => { try { await ElMessageBox.confirm('确定删除该实验室？', '警告', { type: 'warning' }); const res = await request.delete(`/admin/lab/delete?roomNo=${no}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchLabs(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
+
+const openEquipDialog = (lab) => { currentLab.value = lab; fetchAllEquipments(); equipDialog.value = true }
+const openAddEquip = () => { newEquip.value = { equipNo: '', equipName: '', model: '', quantity: 1, roomNo: currentLab.value.roomNo }; addEquipDialog.value = true }
+const submitAddEquip = async () => {
+  if (!newEquip.value.equipNo || !newEquip.value.equipName) return ElMessage.warning('设备号和名称不能为空！')
+  const res = await request.post('/admin/equipment/add', newEquip.value)
+  if (res.code === 200) { ElMessage.success(res.data); addEquipDialog.value = false; fetchAllEquipments(); fetchLogs() } else { ElMessage.error(res.msg) }
+}
+const deleteEquip = async (equipNo) => { try { await ElMessageBox.confirm('确定删除该设备？', '警告', { type: 'warning' }); const res = await request.delete(`/admin/equipment/delete?equipNo=${equipNo}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchAllEquipments(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
+
+// ================= 课程操作 =================
+const openAddCourse = () => { newCourse.value = { courseNo: '', courseName: '', credit: 2.0, hours: 32, semester: '' }; courseDialog.value = true }
+const submitAddCourse = async () => {
+  if (!newCourse.value.courseNo || !newCourse.value.courseName) return ElMessage.warning('课程号和课程名不能为空！')
+  const res = await request.post('/admin/course/add', newCourse.value)
+  if (res.code === 200) { ElMessage.success(res.data); courseDialog.value = false; fetchCourses(); fetchLogs() } else { ElMessage.error(res.msg) }
+}
+const deleteCourse = async (no) => { try { await ElMessageBox.confirm('确定删除该课程？', '警告', { type: 'warning' }); const res = await request.delete(`/admin/course/delete?courseNo=${no}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchCourses(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
+
+// ================= 学期操作 =================
+const openAddSemester = () => { newSemester.value = { semesterName: '', startDate: '', totalWeeks: 20 }; semesterDialog.value = true }
+const submitAddSemester = async () => {
+  if (!newSemester.value.semesterName || !newSemester.value.startDate) return ElMessage.warning('学期名称和开学日期不能为空！')
+  const res = await request.post('/admin/semester/add', newSemester.value)
+  if (res.code === 200) { ElMessage.success(res.data); semesterDialog.value = false; fetchSemesters(); fetchLogs() } else { ElMessage.error(res.msg) }
+}
+const deleteSemester = async (name) => { try { await ElMessageBox.confirm('确定删除该学期？可能会导致关联排课失效！', '警告', { type: 'warning' }); const res = await request.delete(`/admin/semester/delete?semesterName=${name}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchSemesters(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
+
+// ================= 账号安全 =================
+const resetPwd = async (account, role) => {
+  try {
+    await ElMessageBox.confirm(`确定要将该用户的密码强制重置为 123456 吗？`, '提示', { type: 'warning' })
+    const res = await request.post(`/admin/reset-password?account=${account}&role=${role}`)
+    if (res.code === 200) { ElMessage.success(res.data); fetchLogs() } else { ElMessage.error(res.msg) }
+  } catch (e) {}
+}
+
+const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
+const submitPwd = async () => {
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value
+  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
+  const res = await request.post('/admin/update-password', null, { params: { oldPassword, newPassword } })
+  if (res.code === 200) { 
+    ElMessage.success('修改成功，请重新登录！'); 
+    pwdDialog.value = false; 
+    setTimeout(() => { 
+      localStorage.removeItem('loginUser'); 
+      localStorage.removeItem('token'); // ⚠️ 清理 Token
+      router.push('/') 
+    }, 1000) 
+  } else { ElMessage.error(res.msg) }
+}
+
+const logout = () => { 
+  localStorage.removeItem('loginUser'); 
+  localStorage.removeItem('token'); // ⚠️ 清理 Token
+  router.push('/') 
+}
+</script>
+
+<style scoped>
+.home-container { min-height: 100vh; background-color: #f5f7fa; }
+.header { background-color: #fff; height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.header h2 { margin: 0; color: #333; }
+.main-content { padding: 40px; max-width: 1300px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1); margin-top: 20px;}
+
+/* 📱 手机端适配核心样式 */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto; /* 表格内部横向滑动 */
+  -webkit-overflow-scrolling: touch;
+}
+
+@media screen and (max-width: 768px) {
+  .header {
+    padding: 10px 15px;
+    height: auto;
+    min-height: 60px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .header h2 { font-size: 16px; }
+  .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 10px;}
+  .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }
+  .el-tabs__nav-wrap::after { display: none; }
+  .el-pagination { justify-content: center !important; flex-wrap: wrap; }
+}
+</style>
+
+--- File: G:\DevEnv\Project\lab-system-frontend\src\App.vue ---
+<template>
+  <router-view />
+</template>

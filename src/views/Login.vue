@@ -26,7 +26,27 @@
         size="large" 
         class="input-item" 
         show-password 
+        @keyup.enter="handleLogin" 
       />
+
+      <!-- ⚠️ 新增：验证码输入框及图片 -->
+      <div class="captcha-container">
+        <el-input 
+          v-model="captchaCode" 
+          placeholder="请输入验证码" 
+          size="large" 
+          class="captcha-input"
+          @keyup.enter="handleLogin"
+        />
+        <!-- 点击图片可以刷新 -->
+        <img 
+          :src="captchaImage" 
+          @click="fetchCaptcha" 
+          class="captcha-img" 
+          title="点击刷新验证码"
+          alt="验证码"
+        />
+      </div>
       
       <!-- 登录按钮 -->
       <el-button 
@@ -43,10 +63,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import axios from 'axios'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import request from '../utils/request' 
 
 const role = ref('student')
 const username = ref('')
@@ -54,48 +74,76 @@ const password = ref('')
 const loading = ref(false)
 const router = useRouter()
 
+// ⚠️ 新增：验证码相关变量
+const captchaKey = ref('')
+const captchaCode = ref('')
+const captchaImage = ref('')
+
+// ⚠️ 获取验证码方法
+const fetchCaptcha = async () => {
+  try {
+    const res = await request.get('/captcha')
+    if (res.code === 200) {
+      captchaKey.value = res.data.captchaKey
+      captchaImage.value = res.data.captchaImage
+      captchaCode.value = '' // 刷新时清空输入
+    }
+  } catch (error) {
+    ElMessage.error('获取验证码失败，请检查网络！')
+  }
+}
+
+// 页面加载时自动获取验证码
+onMounted(() => {
+  fetchCaptcha()
+})
+
 const handleLogin = async () => {
   if (!username.value || !password.value) {
     ElMessage.warning('请输入账号和密码！')
     return
   }
+  if (!captchaCode.value) {
+    ElMessage.warning('请输入验证码！')
+    return
+  }
   
   loading.value = true
   try {
-    // 1. 动态选择接口
     let apiUrl = ''
     if (role.value === 'student') {
-      apiUrl = '/api/login/student'
+      apiUrl = '/login/student'
     } else if (role.value === 'teacher') {
-      apiUrl = '/api/login/teacher'
+      apiUrl = '/login/teacher'
     } else {
-      apiUrl = '/api/login/admin'
+      apiUrl = '/login/admin'
     }
 
-    // ⚠️ 2. 发送请求（刚才漏掉的就是这里！）
-    const response = await axios.post(apiUrl, null, {
+    // ⚠️ 发送请求时带上验证码参数
+    const res = await request.post(apiUrl, null, {
       params: {
         username: username.value,
-        password: password.value
+        password: password.value,
+        captchaKey: captchaKey.value,  // 传 UUID
+        captchaCode: captchaCode.value // 传用户输入的验证码
       }
     })
 
-    const res = response.data
-
-    // 3. 处理响应结果
     if (res.code === 200) {
-      // 管理员返回的 data 是字符串，学生/老师返回的是对象
-      const welcomeName = role.value === 'admin' ? res.data : res.data.name
-      ElMessage.success('登录成功！欢迎你，' + welcomeName)
-      
-      // 存用户信息
-      const userData = role.value === 'admin' 
-        ? { name: res.data, role: 'admin' } 
-        : { ...res.data, role: role.value }
-        
-      localStorage.setItem('loginUser', JSON.stringify(userData)) 
+      const userData = res.data.user
+      const token = res.data.token
 
-      // 4. 跳转路由
+      if (role.value === 'admin') {
+        userData.role = 'admin'
+      } else {
+        userData.role = role.value
+      }
+
+      ElMessage.success('登录成功！欢迎你，' + userData.name)
+      
+      localStorage.setItem('loginUser', JSON.stringify(userData)) 
+      localStorage.setItem('token', token) 
+
       if (role.value === 'student') {
         router.push('/student-home')
       } else if (role.value === 'teacher') {
@@ -106,10 +154,14 @@ const handleLogin = async () => {
 
     } else {
       ElMessage.error(res.msg)
+      fetchCaptcha() // ⚠️ 核心：登录失败（包括验证码错），立刻刷新一张新验证码
     }
   } catch (error) {
-    ElMessage.error('网络错误，请检查后端是否启动！')
     console.error(error)
+    if (!error.response || error.response.status !== 401) {
+      ElMessage.error('网络错误，请检查后端是否启动！')
+    }
+    fetchCaptcha() // 网络异常也刷新一下
   } finally {
     loading.value = false
   }
@@ -144,6 +196,29 @@ const handleLogin = async () => {
   width: 100%;
   display: flex;
   justify-content: center;
+}
+
+/* ⚠️ 新增：验证码容器样式 */
+.captcha-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.captcha-input {
+  width: 55%;
+}
+
+.captcha-img {
+  width: 40%;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  box-sizing: border-box;
+  background-color: #f5f7fa;
 }
 
 .login-btn {
