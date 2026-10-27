@@ -562,9 +562,15 @@ const submitPublish = async () => {
   if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
   try {
     const res = await request.post('/notice/publish', null, {
-      params: { title: noticeForm.value.title, content: noticeForm.value.content, publisherName: loginUser ? loginUser.name : '管理员', targetRole: 'all' }
+      params: {
+        title: noticeForm.value.title,
+        content: noticeForm.value.content,
+        targetRole: 'all'
+        // ⚠️ 去掉 publisherName，后端从 JWT 取
+      }
     })
     if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
+    else { ElMessage.error(res.msg) }
   } catch (e) { ElMessage.error('发布失败') }
 }
 

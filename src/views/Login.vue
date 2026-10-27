@@ -2,57 +2,56 @@
   <div class="login-container">
     <div class="login-box">
       <h2>实验教学管理系统</h2>
-      
+
       <!-- 身份选择 -->
       <el-radio-group v-model="role" class="input-item">
         <el-radio value="student">学生登录</el-radio>
         <el-radio value="teacher">教师登录</el-radio>
         <el-radio value="admin">管理员登录</el-radio>
       </el-radio-group>
-      
+
       <!-- 账号输入框 -->
-      <el-input 
-        v-model="username" 
-        placeholder="请输入账号" 
-        size="large" 
-        class="input-item" 
-      />
-      
-      <!-- 密码输入框 -->
-      <el-input 
-        v-model="password" 
-        type="password" 
-        placeholder="请输入密码" 
-        size="large" 
-        class="input-item" 
-        show-password 
-        @keyup.enter="handleLogin" 
+      <el-input
+        v-model="username"
+        placeholder="请输入账号"
+        size="large"
+        class="input-item"
       />
 
-      <!-- ⚠️ 新增：验证码输入框及图片 -->
+      <!-- 密码输入框 -->
+      <el-input
+        v-model="password"
+        type="password"
+        placeholder="请输入密码"
+        size="large"
+        class="input-item"
+        show-password
+        @keyup.enter="handleLogin"
+      />
+
+      <!-- 验证码输入框及图片 -->
       <div class="captcha-container">
-        <el-input 
-          v-model="captchaCode" 
-          placeholder="请输入验证码" 
-          size="large" 
+        <el-input
+          v-model="captchaCode"
+          placeholder="请输入验证码"
+          size="large"
           class="captcha-input"
           @keyup.enter="handleLogin"
         />
-        <!-- 点击图片可以刷新 -->
-        <img 
-          :src="captchaImage" 
-          @click="fetchCaptcha" 
-          class="captcha-img" 
+        <img
+          :src="captchaImage"
+          @click="fetchCaptcha"
+          class="captcha-img"
           title="点击刷新验证码"
           alt="验证码"
         />
       </div>
-      
+
       <!-- 登录按钮 -->
-      <el-button 
-        type="primary" 
-        size="large" 
-        class="login-btn" 
+      <el-button
+        type="primary"
+        size="large"
+        class="login-btn"
         @click="handleLogin"
         :loading="loading"
       >
@@ -66,7 +65,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import request from '../utils/request' 
+import request from '../utils/request'
 
 const role = ref('student')
 const username = ref('')
@@ -74,26 +73,23 @@ const password = ref('')
 const loading = ref(false)
 const router = useRouter()
 
-// ⚠️ 新增：验证码相关变量
 const captchaKey = ref('')
 const captchaCode = ref('')
 const captchaImage = ref('')
 
-// ⚠️ 获取验证码方法
 const fetchCaptcha = async () => {
   try {
     const res = await request.get('/captcha')
     if (res.code === 200) {
       captchaKey.value = res.data.captchaKey
       captchaImage.value = res.data.captchaImage
-      captchaCode.value = '' // 刷新时清空输入
+      captchaCode.value = ''
     }
   } catch (error) {
     ElMessage.error('获取验证码失败，请检查网络！')
   }
 }
 
-// 页面加载时自动获取验证码
 onMounted(() => {
   fetchCaptcha()
 })
@@ -107,7 +103,7 @@ const handleLogin = async () => {
     ElMessage.warning('请输入验证码！')
     return
   }
-  
+
   loading.value = true
   try {
     let apiUrl = ''
@@ -119,49 +115,44 @@ const handleLogin = async () => {
       apiUrl = '/login/admin'
     }
 
-    // ⚠️ 发送请求时带上验证码参数
     const res = await request.post(apiUrl, null, {
       params: {
         username: username.value,
         password: password.value,
-        captchaKey: captchaKey.value,  // 传 UUID
-        captchaCode: captchaCode.value // 传用户输入的验证码
+        captchaKey: captchaKey.value,
+        captchaCode: captchaCode.value
       }
     })
 
     if (res.code === 200) {
+      // ⚠️ [第一步改造] user 现在是 { userNo, name, role } 三个字段
+      //    role 由后端返回，前端不再手动赋值
       const userData = res.data.user
       const token = res.data.token
 
-      if (role.value === 'admin') {
-        userData.role = 'admin'
-      } else {
-        userData.role = role.value
-      }
-
       ElMessage.success('登录成功！欢迎你，' + userData.name)
-      
-      localStorage.setItem('loginUser', JSON.stringify(userData)) 
-      localStorage.setItem('token', token) 
 
-      if (role.value === 'student') {
+      localStorage.setItem('loginUser', JSON.stringify(userData))
+      localStorage.setItem('token', token)
+
+      // ⚠️ [第一步改造] 按后端返回的 role 跳转
+      if (userData.role === 'student') {
         router.push('/student-home')
-      } else if (role.value === 'teacher') {
+      } else if (userData.role === 'teacher') {
         router.push('/teacher-home')
       } else {
         router.push('/admin-home')
       }
-
     } else {
       ElMessage.error(res.msg)
-      fetchCaptcha() // ⚠️ 核心：登录失败（包括验证码错），立刻刷新一张新验证码
+      fetchCaptcha()
     }
   } catch (error) {
     console.error(error)
     if (!error.response || error.response.status !== 401) {
       ElMessage.error('网络错误，请检查后端是否启动！')
     }
-    fetchCaptcha() // 网络异常也刷新一下
+    fetchCaptcha()
   } finally {
     loading.value = false
   }
@@ -187,7 +178,7 @@ const handleLogin = async () => {
 }
 
 .login-box h2 {
-  margin-bottom: 20px; 
+  margin-bottom: 20px;
   color: #333;
 }
 
@@ -198,7 +189,6 @@ const handleLogin = async () => {
   justify-content: center;
 }
 
-/* ⚠️ 新增：验证码容器样式 */
 .captcha-container {
   display: flex;
   justify-content: space-between;

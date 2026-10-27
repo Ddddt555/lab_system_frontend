@@ -343,8 +343,7 @@ const handleLogin = async () => {
 
     <div class="main-content">
       <el-tabs v-model="activeTab" class="demo-tabs" @tab-change="handleTabChange">
-        
-        <!-- 标签页 1：选课中心 -->
+
         <el-tab-pane label="选课中心" name="select-class">
           <el-table v-if="!isMobile" :data="paginatedClassList" border style="width: 100%" v-loading="loading">
             <el-table-column prop="classNo" label="教学班号" width="150" align="center" />
@@ -365,7 +364,6 @@ const handleLogin = async () => {
             </el-table-column>
           </el-table>
 
-          <!-- 移动端卡片 -->
           <div v-else class="mobile-card-list" v-loading="loading">
             <el-card v-for="item in paginatedClassList" :key="item.classNo" class="mobile-card">
               <div class="card-header">
@@ -385,17 +383,16 @@ const handleLogin = async () => {
             </el-card>
           </div>
 
-          <el-pagination 
-            v-model:current-page="classPage" 
-            v-model:page-size="pageSize" 
-            :page-sizes="[5, 10, 20, 50]" 
-            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" 
-            :total="availableClasses.length" 
-            style="margin-top: 15px; justify-content: center;" 
+          <el-pagination
+            v-model:current-page="classPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+            :total="availableClasses.length"
+            style="margin-top: 15px; justify-content: center;"
           />
         </el-tab-pane>
 
-        <!-- 标签页 2：可预约的实验场次 -->
         <el-tab-pane label="可预约的实验场次" name="all-sessions">
           <el-table v-if="!isMobile" :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
@@ -409,9 +406,12 @@ const handleLogin = async () => {
                 <el-tag :type="scope.row.remainingSeats > 0 ? 'success' : 'danger'">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="实验指导书" width="130" align="center">
+            <el-table-column label="实验指导书" width="150" align="center">
               <template #default="scope">
-                <a v-if="scope.row.guideFile" :href="'/api/report/download/' + scope.row.guideFile" target="_blank" style="color: #409EFF; text-decoration: underline;">下载指导书</a>
+                <template v-if="scope.row.guideFile">
+                  <el-button type="primary" link @click="previewFile(scope.row.guideFile)">预览</el-button>
+                  <el-button type="success" link @click="downloadFile(scope.row.guideFile)">下载</el-button>
+                </template>
                 <span v-else style="color: gray;">暂无</span>
               </template>
             </el-table-column>
@@ -421,7 +421,7 @@ const handleLogin = async () => {
               </template>
             </el-table-column>
           </el-table>
-          
+
           <div v-else class="mobile-card-list" v-loading="loading">
             <el-card v-for="item in paginatedSessionList" :key="item.sessionNo" class="mobile-card">
               <div class="card-header">
@@ -435,25 +435,27 @@ const handleLogin = async () => {
                 <p><strong>教师：</strong> {{ item.teacherName }}</p>
                 <p><strong>时间：</strong> {{ formatTeachingTime(item) }}</p>
               </div>
-              <div class="card-footer">
-                <a v-if="item.guideFile" :href="'/api/report/download/' + item.guideFile" target="_blank" class="download-link">下载指导书</a>
+              <div class="card-footer" style="gap: 10px;">
+                <template v-if="item.guideFile">
+                  <el-button type="primary" plain size="small" @click="previewFile(item.guideFile)">预览指导书</el-button>
+                  <el-button type="success" plain size="small" @click="downloadFile(item.guideFile)">下载</el-button>
+                </template>
                 <span v-else class="no-file">暂无指导书</span>
                 <el-button type="primary" size="small" :disabled="item.remainingSeats <= 0" @click="handleBook(item.sessionNo)">预约</el-button>
               </div>
             </el-card>
           </div>
 
-          <el-pagination 
-            v-model:current-page="sessionPage" 
-            v-model:page-size="pageSize" 
-            :page-sizes="[5, 10, 20, 50]" 
-            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" 
-            :total="sessionList.length" 
-            style="margin-top: 15px; justify-content: center;" 
+          <el-pagination
+            v-model:current-page="sessionPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+            :total="sessionList.length"
+            style="margin-top: 15px; justify-content: center;"
           />
         </el-tab-pane>
 
-        <!-- 标签页 3：我的预约记录 -->
         <el-tab-pane label="我的预约记录" name="my-bookings">
           <el-table v-if="!isMobile" :data="paginatedBookingList" border style="width: 100%" v-loading="bookingLoading">
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
@@ -462,9 +464,12 @@ const handleLogin = async () => {
             <el-table-column label="上课时间" align="center">
               <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
             </el-table-column>
-            <el-table-column label="指导书" width="120" align="center">
+            <el-table-column label="指导书" width="150" align="center">
               <template #default="scope">
-                <a v-if="scope.row.guideFile" :href="'/api/report/download/' + scope.row.guideFile" target="_blank" style="color: #409EFF; text-decoration: underline;">下载</a>
+                <template v-if="scope.row.guideFile">
+                  <el-button type="primary" link @click="previewFile(scope.row.guideFile)">预览</el-button>
+                  <el-button type="success" link @click="downloadFile(scope.row.guideFile)">下载</el-button>
+                </template>
                 <span v-else style="color: gray;">暂无</span>
               </template>
             </el-table-column>
@@ -503,8 +508,10 @@ const handleLogin = async () => {
                 <p><strong>时间：</strong> {{ formatTeachingTime(item) }}</p>
                 <p v-if="item.comment"><strong>评语：</strong> {{ item.comment }}</p>
               </div>
-              <div class="card-footer" style="justify-content: flex-start; gap: 10px;">
-                <a v-if="item.guideFile" :href="'/api/report/download/' + item.guideFile" target="_blank" class="download-link">下载指导书</a>
+              <div class="card-footer" style="justify-content: flex-start; gap: 10px; flex-wrap: wrap;">
+                <template v-if="item.guideFile">
+                  <el-button type="primary" plain size="small" @click="previewFile(item.guideFile)">预览指导书</el-button>
+                </template>
                 <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
                 <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
                 <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
@@ -512,19 +519,18 @@ const handleLogin = async () => {
             </el-card>
           </div>
 
-          <el-pagination 
-            v-model:current-page="bookingPage" 
-            v-model:page-size="pageSize" 
-            :page-sizes="[5, 10, 20, 50]" 
-            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" 
-            :total="myBookingList.length" 
-            style="margin-top: 15px; justify-content: center;" 
+          <el-pagination
+            v-model:current-page="bookingPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+            :total="myBookingList.length"
+            style="margin-top: 15px; justify-content: center;"
           />
         </el-tab-pane>
       </el-tabs>
     </div>
 
-    <!-- 弹窗群 -->
     <el-dialog v-model="uploadDialogVisible" title="上传实验报告" :width="isMobile ? '90%' : '400px'">
       <div style="text-align: center;">
         <p>正在为 <strong>{{ uploadProjectName }}</strong> 提交报告</p>
@@ -550,7 +556,10 @@ const handleLogin = async () => {
            <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
         </el-table-column>
         <el-table-column label="文件操作" align="center">
-           <template #default="scope"><a :href="'/api/report/download/' + scope.row.fileUrl" target="_blank" style="color: #409EFF; text-decoration: underline;">点击下载</a></template>
+           <template #default="scope">
+             <el-button type="primary" link @click="previewFile(scope.row.fileUrl)">预览</el-button>
+             <el-button type="success" link @click="downloadFile(scope.row.fileUrl)">下载</el-button>
+           </template>
         </el-table-column>
         <el-table-column prop="score" label="得分" width="80" align="center">
            <template #default="scope"><span v-if="scope.row.score !== null" style="color: red;">{{ scope.row.score }}</span><span v-else style="color: gray;">-</span></template>
@@ -565,6 +574,16 @@ const handleLogin = async () => {
         <el-form-item label="确认密码" required><el-input v-model="pwdForm.confirmPassword" type="password" show-password /></el-form-item>
       </el-form>
       <template #footer><el-button @click="pwdDialog = false">取消</el-button><el-button type="primary" @click="submitPwd">确认修改</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="previewDialogVisible" :title="'在线预览 - ' + previewFileName" :width="isMobile ? '100%' : '80%'" top="5vh" destroy-on-close>
+      <div style="width: 100%; height: 70vh;">
+        <iframe v-if="previewFileUrl" :src="previewFileUrl" width="100%" height="100%" frameborder="0"></iframe>
+      </div>
+      <template #footer>
+        <el-button @click="previewDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="downloadFile(previewFileName)">下载文件</el-button>
+      </template>
     </el-dialog>
 
     <el-drawer v-model="noticeDrawerVisible" title="我的通知" :size="isMobile ? '100%' : '400px'">
@@ -585,7 +604,7 @@ const handleLogin = async () => {
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import request from '../utils/request' 
+import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { UploadFilled, Bell } from '@element-plus/icons-vue'
 
@@ -598,14 +617,18 @@ const screenWidth = ref(window.innerWidth)
 const isMobile = computed(() => screenWidth.value < 768)
 const handleResize = () => { screenWidth.value = window.innerWidth }
 
-onMounted(() => { 
+onMounted(() => {
   window.addEventListener('resize', handleResize)
-  fetchSessions(); 
-  fetchNotices() 
+  fetchSessions()
+  fetchNotices()
+  fetchAvailableClasses()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(previewFileUrl.value)
+  }
 })
 
 const activeTab = ref('select-class')
@@ -614,15 +637,12 @@ const loading = ref(false)
 const myBookingList = ref([])
 const bookingLoading = ref(false)
 
-// ⚠️ 新增：选课相关变量
 const availableClasses = ref([])
 const classPage = ref(1)
-
 const sessionPage = ref(1)
 const bookingPage = ref(1)
 const pageSize = ref(10)
 
-// ⚠️ 新增：选课分页
 const paginatedClassList = computed(() => availableClasses.value.slice((classPage.value - 1) * pageSize.value, classPage.value * pageSize.value))
 const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage.value - 1) * pageSize.value, sessionPage.value * pageSize.value))
 const paginatedBookingList = computed(() => myBookingList.value.slice((bookingPage.value - 1) * pageSize.value, bookingPage.value * pageSize.value))
@@ -635,6 +655,10 @@ const uploadProjectName = ref('')
 
 const historyDialogVisible = ref(false)
 const historyList = ref([])
+
+const previewDialogVisible = ref(false)
+const previewFileUrl = ref('')
+const previewFileName = ref('')
 
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -664,13 +688,12 @@ const openNoticeDrawer = () => {
   if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime)
 }
 
-const handleTabChange = (name) => { 
-  if (name === 'my-bookings') fetchMyBookings(); 
-  else if (name === 'all-sessions') fetchSessions(); 
-  else if (name === 'select-class') fetchAvailableClasses();
+const handleTabChange = (name) => {
+  if (name === 'my-bookings') fetchMyBookings()
+  else if (name === 'all-sessions') fetchSessions()
+  else if (name === 'select-class') fetchAvailableClasses()
 }
 
-// ⚠️ 新增：选课列表拉取
 const fetchAvailableClasses = async () => {
   loading.value = true
   try {
@@ -681,7 +704,6 @@ const fetchAvailableClasses = async () => {
   }
 }
 
-// ⚠️ 新增：加入班级
 const selectClass = async (classNo) => {
   try {
     const res = await request.post(`/student/select-class?classNo=${classNo}`)
@@ -696,7 +718,6 @@ const selectClass = async (classNo) => {
   }
 }
 
-// ⚠️ 新增：退课
 const dropClass = async (classNo) => {
   try {
     await ElMessageBox.confirm('确定要退出该教学班吗？', '警告', { type: 'warning' })
@@ -710,95 +731,143 @@ const dropClass = async (classNo) => {
   } catch (e) {}
 }
 
-const fetchSessions = async () => { 
-  loading.value = true; 
-  try { 
-    const res = await request.get('/student/session/list'); 
-    if (res.code === 200) sessionList.value = res.data 
-  } finally { 
-    loading.value = false 
-  } 
+const fetchSessions = async () => {
+  loading.value = true
+  try {
+    const res = await request.get('/student/session/list')
+    if (res.code === 200) sessionList.value = res.data
+  } finally {
+    loading.value = false
+  }
 }
 
-const fetchMyBookings = async () => { 
-  bookingLoading.value = true; 
-  try { 
-    const res = await request.get('/student/my-bookings'); 
-    if (res.code === 200) myBookingList.value = res.data 
-  } finally { 
-    bookingLoading.value = false 
-  } 
+const fetchMyBookings = async () => {
+  bookingLoading.value = true
+  try {
+    const res = await request.get('/student/my-bookings')
+    if (res.code === 200) myBookingList.value = res.data
+  } finally {
+    bookingLoading.value = false
+  }
 }
 
-const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`; }
+const formatTeachingTime = (row) => {
+  if (!row || !row.semester) return ''
+  const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`
+}
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 
-const handleBook = async (sessionNo) => { 
-  try { 
-    const res = await request.post(`/student/book?sessionNo=${sessionNo}`); 
-    if (res.code === 200) { ElMessage.success('预约成功！'); fetchSessions() } 
-    else { ElMessage.warning(res.msg) } 
-  } catch (error) { ElMessage.error('预约失败！') } 
+const handleBook = async (sessionNo) => {
+  try {
+    const res = await request.post(`/student/book?sessionNo=${sessionNo}`)
+    if (res.code === 200) { ElMessage.success('预约成功！'); fetchSessions() }
+    else { ElMessage.warning(res.msg) }
+  } catch (error) { ElMessage.error('预约失败！') }
 }
 
-const cancelBooking = async (bookingNo) => { 
-  try { 
-    await ElMessageBox.confirm('确定要取消该场次的预约吗？', '提示', { type: 'warning' }); 
-    const res = await request.post(`/student/cancel?bookingNo=${bookingNo}`); 
-    if (res.code === 200) { ElMessage.success('取消预约成功！'); fetchMyBookings(); fetchSessions() } 
-    else { ElMessage.error(res.msg) } 
-  } catch (e) {} 
+const cancelBooking = async (bookingNo) => {
+  try {
+    await ElMessageBox.confirm('确定要取消该场次的预约吗？', '提示', { type: 'warning' })
+    const res = await request.post(`/student/cancel?bookingNo=${bookingNo}`)
+    if (res.code === 200) { ElMessage.success('取消预约成功！'); fetchMyBookings(); fetchSessions() }
+    else { ElMessage.error(res.msg) }
+  } catch (e) {}
 }
 
-const openUploadDialog = (row) => { uploadProjectNo.value = row.projectNo; uploadProjectName.value = row.projectName; uploadFile.value = null; uploadDialogVisible.value = true }
+const openUploadDialog = (row) => {
+  uploadProjectNo.value = row.projectNo
+  uploadProjectName.value = row.projectName
+  uploadFile.value = null
+  uploadDialogVisible.value = true
+}
 const handleFileChange = (file) => { uploadFile.value = file.raw }
 
-const submitUpload = async () => { 
-  if (!uploadFile.value) return ElMessage.warning('请先选择文件！'); 
-  uploading.value = true; 
-  const formData = new FormData(); 
-  formData.append('file', uploadFile.value); 
-  formData.append('studentNo', currentStudentNo); 
-  formData.append('projectNo', uploadProjectNo.value); 
-  try { 
-    const res = await request.post('/report/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); 
-    if (res.code === 200) { ElMessage.success(res.data); uploadDialogVisible.value = false; fetchMyBookings() } 
-    else { ElMessage.error(res.msg) } 
-  } catch (error) { ElMessage.error('上传失败，请检查后端！') } 
-  finally { uploading.value = false } 
+const submitUpload = async () => {
+  if (!uploadFile.value) return ElMessage.warning('请先选择文件！')
+  uploading.value = true
+  const formData = new FormData()
+  formData.append('file', uploadFile.value)
+  formData.append('projectNo', uploadProjectNo.value)
+  // ⚠️ 不再传 studentNo，后端从 JWT 取
+  try {
+    const res = await request.post('/report/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (res.code === 200) { ElMessage.success(res.data); uploadDialogVisible.value = false; fetchMyBookings() }
+    else { ElMessage.error(res.msg) }
+  } catch (error) { ElMessage.error('上传失败，请检查后端！') }
+  finally { uploading.value = false }
 }
 
-const openHistory = async (row) => { 
-  try { 
-    const res = await request.get(`/report/my-versions?studentNo=${currentStudentNo}&projectNo=${row.projectNo}`); 
-    if (res.code === 200) { historyList.value = res.data; historyDialogVisible.value = true } 
-  } catch (error) { ElMessage.error('获取版本历史失败！') } 
+const openHistory = async (row) => {
+  try {
+    // ⚠️ 不再传 studentNo，后端从 JWT 取
+    const res = await request.get(`/report/my-versions?projectNo=${row.projectNo}`)
+    if (res.code === 200) { historyList.value = res.data; historyDialogVisible.value = true }
+  } catch (error) { ElMessage.error('获取版本历史失败！') }
+}
+
+// ⚠️ 预览：axios 带 token 拉 blob，再交给 iframe
+const previewFile = async (fileName) => {
+  previewFileName.value = fileName
+  if (!fileName.toLowerCase().endsWith('.pdf')) {
+    ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')
+    return
+  }
+  try {
+    const res = await request.get(`/report/preview/${fileName}`, { responseType: 'blob' })
+    const blob = new Blob([res], { type: 'application/pdf' })
+    if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
+      window.URL.revokeObjectURL(previewFileUrl.value)
+    }
+    previewFileUrl.value = window.URL.createObjectURL(blob)
+    previewDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error('预览失败，请检查登录状态或权限！')
+  }
+}
+
+// ⚠️ 下载：axios 带 token 拉 blob
+const downloadFile = async (fileName) => {
+  try {
+    const res = await request.get(`/report/download/${fileName}`, { responseType: 'blob' })
+    const blob = new Blob([res])
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('下载失败，请检查登录状态或权限！')
+  }
 }
 
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
 
-const submitPwd = async () => { 
-  const { oldPassword, newPassword, confirmPassword } = pwdForm.value; 
-  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！'); 
-  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！'); 
-  try { 
-    const res = await request.post('/student/update-password', null, { params: { oldPwd: oldPassword, newPwd: newPassword } }); 
-    if (res.code === 200) { 
-      ElMessage.success('修改成功，请重新登录！'); 
-      pwdDialog.value = false; 
-      setTimeout(() => { 
-        localStorage.removeItem('loginUser'); 
-        localStorage.removeItem('token'); 
-        router.push('/') 
-      }, 1000) 
-    } else { ElMessage.error(res.msg) } 
-  } catch (error) { ElMessage.error('网络错误，修改失败！') } 
+const submitPwd = async () => {
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value
+  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
+  try {
+    const res = await request.post('/student/update-password', null, { params: { oldPwd: oldPassword, newPwd: newPassword } })
+    if (res.code === 200) {
+      ElMessage.success('修改成功，请重新登录！')
+      pwdDialog.value = false
+      setTimeout(() => {
+        localStorage.removeItem('loginUser')
+        localStorage.removeItem('token')
+        router.push('/')
+      }, 1000)
+    } else { ElMessage.error(res.msg) }
+  } catch (error) { ElMessage.error('网络错误，修改失败！') }
 }
 
-const logout = () => { 
-  localStorage.removeItem('loginUser'); 
-  localStorage.removeItem('token'); 
-  router.push('/') 
+const logout = () => {
+  localStorage.removeItem('loginUser')
+  localStorage.removeItem('token')
+  router.push('/')
 }
 </script>
 
@@ -808,14 +877,12 @@ const logout = () => {
 .header h2 { margin: 0; color: #333; }
 .main-content { padding: 40px; max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); margin-top: 20px;}
 
-/* 📱 手机端卡片与响应式样式 */
 .mobile-card-list { display: flex; flex-direction: column; gap: 15px; }
 .mobile-card { border-radius: 8px; margin-bottom: 0; }
 .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ebeef5; padding-bottom: 10px; margin-bottom: 10px; }
 .project-name { font-weight: bold; font-size: 16px; color: #303133; flex: 1; }
 .card-body p { margin: 5px 0; font-size: 14px; color: #606266; line-height: 1.5; }
 .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ebeef5; flex-wrap: wrap; }
-.download-link { color: #409EFF; text-decoration: underline; font-size: 14px; }
 .no-file { color: #909399; font-size: 14px; }
 
 @media screen and (max-width: 768px) {
@@ -846,7 +913,6 @@ const logout = () => {
     <div class="main-content">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
 
-        <!-- 1. 我负责的场次 -->
         <el-tab-pane label="我负责的场次" name="sessions">
           <div class="table-responsive">
             <el-table :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
@@ -869,7 +935,6 @@ const logout = () => {
           <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="sessionList.length" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
-        <!-- 2. 实验项目管理 -->
         <el-tab-pane label="实验项目管理" name="projects">
           <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddProject">发布新实验项目</el-button></div>
           <div class="table-responsive">
@@ -893,7 +958,6 @@ const logout = () => {
           <el-pagination v-model:current-page="projectPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="projectList.length" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
-        <!-- 3. 安排实验场次 -->
         <el-tab-pane label="安排实验场次" name="schedule">
           <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddSession">安排新场次</el-button></div>
           <div class="table-responsive">
@@ -912,13 +976,11 @@ const logout = () => {
           <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="sessionList.length" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
-        <!-- 4. 成绩管理 -->
         <el-tab-pane label="成绩管理" name="scores">
           <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
             <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="fetchCourseScores">
               <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
             </el-select>
-            <!-- ⚠️ 新增：导出成绩单按钮 -->
             <el-button type="success" v-if="selectedClassNo" @click="exportScores">导出成绩单</el-button>
           </div>
           <div class="table-responsive">
@@ -942,7 +1004,6 @@ const logout = () => {
           <el-pagination v-if="selectedClassNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="scoreList.length" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
-        <!-- 5. 数据报表 -->
         <el-tab-pane label="数据报表" name="stats">
           <el-row :gutter="20">
             <el-col :xs="24" :sm="12" style="margin-bottom: 20px;">
@@ -962,7 +1023,6 @@ const logout = () => {
       </el-tabs>
     </div>
 
-    <!-- 弹窗群 -->
     <el-dialog v-model="bookingDialogVisible" title="学生预约名单" :width="isMobile ? '95%' : '60%'">
       <div class="table-responsive">
         <el-table :data="studentList" border style="width: 100%">
@@ -984,8 +1044,11 @@ const logout = () => {
           <el-table-column prop="submitTime" label="提交时间" width="150" align="center">
             <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
           </el-table-column>
-          <el-table-column label="报告文件" width="120" align="center">
-            <template #default="scope"><a :href="'/api/report/download/' + scope.row.fileUrl" target="_blank" style="color: #409EFF; text-decoration: underline;">点击下载</a></template>
+          <el-table-column label="报告文件" width="150" align="center">
+            <template #default="scope">
+              <el-button type="primary" link @click="previewFile(scope.row.fileUrl)">在线预览</el-button>
+              <el-button type="success" link @click="downloadFile(scope.row.fileUrl)">下载</el-button>
+            </template>
           </el-table-column>
           <el-table-column label="分数" width="80" align="center">
              <template #default="scope">{{ scope.row.score !== null ? scope.row.score : '未批阅' }}</template>
@@ -1068,6 +1131,16 @@ const logout = () => {
       </template>
     </el-dialog>
 
+    <el-dialog v-model="previewDialogVisible" :title="'在线预览 - ' + previewFileName" :width="isMobile ? '100%' : '80%'" top="5vh" destroy-on-close>
+      <div style="width: 100%; height: 70vh;">
+        <iframe v-if="previewFileUrl" :src="previewFileUrl" width="100%" height="100%" frameborder="0"></iframe>
+      </div>
+      <template #footer>
+        <el-button @click="previewDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="downloadFile(previewFileName)">下载文件</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
@@ -1105,7 +1178,7 @@ const loading = ref(false)
 
 const sessionList = ref([])
 const projectList = ref([])
-const myClassOptions = ref([]) 
+const myClassOptions = ref([])
 const labOptions = ref([])
 const semesterOptions = ref([])
 const scoreList = ref([])
@@ -1119,7 +1192,7 @@ const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage
 const paginatedProjectList = computed(() => projectList.value.slice((projectPage.value - 1) * pageSize.value, projectPage.value * pageSize.value))
 const paginatedScoreList = computed(() => scoreList.value.slice((scorePage.value - 1) * pageSize.value, scorePage.value * pageSize.value))
 
-const selectedClassNo = ref('') 
+const selectedClassNo = ref('')
 const bookingDialogVisible = ref(false)
 const studentList = ref([])
 const reportDialogVisible = ref(false)
@@ -1131,6 +1204,10 @@ const newProject = ref({ projectName: '', classNo: '', hours: 2, standard: '' })
 const sessionDialog = ref(false)
 const newSession = ref({ projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
 const selectedLabCapacity = ref(100)
+
+const previewDialogVisible = ref(false)
+const previewFileUrl = ref('')
+const previewFileName = ref('')
 
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -1155,6 +1232,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
+  if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(previewFileUrl.value)
+  }
 })
 
 const handleTabChange = (name) => {
@@ -1162,25 +1242,20 @@ const handleTabChange = (name) => {
 }
 
 const fetchSessions = async () => {
-  loading.value = true;
+  loading.value = true
   try {
-    const res = await request.get(`/teacher/my-sessions`);
+    const res = await request.get(`/teacher/my-sessions`)
     if (res.code === 200) sessionList.value = res.data
   } finally {
     loading.value = false
   }
 }
 const fetchProjects = async () => { try { const res = await request.get('/teacher/project/list'); if (res.code === 200) projectList.value = res.data } catch (e) {} }
-const fetchMyClasses = async () => { 
-  try { 
-    const res = await request.get('/teacher/my-classes'); 
-    if (res.code === 200) myClassOptions.value = res.data 
-  } catch (e) {} 
-}
+const fetchMyClasses = async () => { try { const res = await request.get('/teacher/my-classes'); if (res.code === 200) myClassOptions.value = res.data } catch (e) {} }
 const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
 const fetchSemesters = async () => {
   try {
-    const res = await request.get('/teacher/semesters');
+    const res = await request.get('/teacher/semesters')
     if (res.code === 200) {
       semesterOptions.value = res.data
       if (semesterOptions.value.length > 0 && !newSession.value.semester) newSession.value.semester = semesterOptions.value[0].semesterName
@@ -1209,10 +1284,12 @@ const openPublishDialog = () => { noticeForm.value = { title: '', content: '' };
 const submitPublish = async () => {
   if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
   try {
+    // ⚠️ 不再传 publisherName，后端从 JWT 取真实姓名
     const res = await request.post('/notice/publish', null, {
-      params: { title: noticeForm.value.title, content: noticeForm.value.content, publisherName: loginUser ? loginUser.name : '老师', targetRole: 'student' }
+      params: { title: noticeForm.value.title, content: noticeForm.value.content, targetRole: 'student' }
     })
     if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
+    else { ElMessage.error(res.msg) }
   } catch (e) { ElMessage.error('发布失败') }
 }
 
@@ -1227,7 +1304,7 @@ const renderCharts = async () => {
         series: [{ name: '成绩分布', type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false, itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }, label: { show: false, position: 'center' }, emphasis: { label: { show: true, fontSize: 20, fontWeight: 'bold' } }, labelLine: { show: false },
             data: [{ value: data['优秀'], name: '优秀 (90-100)', itemStyle: { color: '#67C23A' } }, { value: data['良好'], name: '良好 (80-89)', itemStyle: { color: '#409EFF' } }, { value: data['中等'], name: '中等 (70-79)', itemStyle: { color: '#E6A23C' } }, { value: data['及格'], name: '及格 (60-69)', itemStyle: { color: '#909399' } }, { value: data['不及格'], name: '不及格 (<60)', itemStyle: { color: '#F56C6C' } }]
         }]
-      }, true) 
+      }, true)
     }
   }
   if (rateChartRef.value) {
@@ -1238,34 +1315,30 @@ const renderCharts = async () => {
       rateChart.setOption({
         tooltip: { formatter: '{b}: {c}%' },
         series: [{ type: 'gauge', startAngle: 180, endAngle: 0, min: 0, max: 100, splitNumber: 5, itemStyle: { color: '#409EFF' }, progress: { show: true, width: 18 }, pointer: { show: false }, axisLine: { lineStyle: { width: 18 } }, axisTick: { show: false }, splitLine: { length: 15, lineStyle: { width: 2, color: '#999' } }, axisLabel: { distance: 25, color: '#999', fontSize: 12 }, detail: { valueAnimation: true, formatter: '{value}%', color: '#409EFF', fontSize: 30, offsetCenter: [0, '40%'] }, data: [{ value: parseFloat(data.rate), name: `已开 ${data.opened} / 共 ${data.total} 个` }], title: { offsetCenter: [0, '70%'], fontSize: 14, color: '#666' } }]
-      }, true) 
+      }, true)
     }
   }
 }
 
 const fetchCourseScores = async () => { if (!selectedClassNo.value) return; loading.value = true; try { const res = await request.get(`/teacher/scores?classNo=${selectedClassNo.value}`); if (res.code === 200) scoreList.value = res.data } catch (e) { ElMessage.error('获取成绩单失败') } finally { loading.value = false } }
-const saveScore = async (studentNo) => { 
-  const row = scoreList.value.find(item => item.studentNo === studentNo); 
-  if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩'); 
-  try { 
-    const res = await request.post(`/teacher/score/save?studentNo=${studentNo}&classNo=${selectedClassNo.value}&dailyScore=${row.score}`); 
-    if (res.code === 200) { ElMessage.success(res.data); fetchCourseScores() } else { ElMessage.error(res.msg) } 
-  } catch (error) { ElMessage.error('保存失败') } 
+const saveScore = async (studentNo) => {
+  const row = scoreList.value.find(item => item.studentNo === studentNo)
+  if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩')
+  try {
+    const res = await request.post(`/teacher/score/save?studentNo=${studentNo}&classNo=${selectedClassNo.value}&dailyScore=${row.score}`)
+    if (res.code === 200) { ElMessage.success(res.data); fetchCourseScores() } else { ElMessage.error(res.msg) }
+  } catch (error) { ElMessage.error('保存失败') }
 }
 
-// ⚠️ 新增：导出成绩单功能
 const exportScores = () => {
   if (!selectedClassNo.value) return
-  // 使用 axios 的 blob 模式请求文件流
   request.get(`/teacher/score/export?classNo=${selectedClassNo.value}`, {
     responseType: 'blob'
   }).then(res => {
-    // 因为我们的拦截器可能会把响应包一层，如果直接返回的就是blob，就不需要 res.data
     const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    // 下载的文件名
     link.setAttribute('download', `成绩单_${selectedClassNo.value}_${new Date().getTime()}.xlsx`)
     document.body.appendChild(link)
     link.click()
@@ -1278,65 +1351,103 @@ const exportScores = () => {
 }
 
 const handleLabChange = (roomNo) => { const lab = labOptions.value.find(r => r.roomNo === roomNo); if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity } }
-const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`; }
+const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}` }
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 
-const handleGuideUpload = async (file, projectNo) => { 
-  const rawFile = file.raw; 
-  if (!rawFile) return; 
-  const formData = new FormData(); 
-  formData.append('file', rawFile); 
-  formData.append('projectNo', projectNo); 
-  try { 
-    const res = await request.post('/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); 
-    if (res.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.msg) } 
-  } catch (error) { ElMessage.error('上传失败！') } 
+const handleGuideUpload = async (file, projectNo) => {
+  const rawFile = file.raw
+  if (!rawFile) return
+  const formData = new FormData()
+  formData.append('file', rawFile)
+  formData.append('projectNo', projectNo)
+  try {
+    const res = await request.post('/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (res.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.msg) }
+  } catch (error) { ElMessage.error('上传失败！') }
 }
 
 const openAddProject = () => { newProject.value = { projectName: '', classNo: '', hours: 2, standard: '' }; projectDialog.value = true }
-const submitAddProject = async () => { 
-  if (!newProject.value.projectName || !newProject.value.classNo) return ElMessage.warning('请填写完整信息！'); 
-  try { 
-    const res = await request.post('/teacher/project/add', newProject.value); 
-    if (res.code === 200) { ElMessage.success(res.data); projectDialog.value = false; fetchProjects() } else { ElMessage.error(res.msg) } 
-  } catch (e) { ElMessage.error('请求失败') } 
+const submitAddProject = async () => {
+  if (!newProject.value.projectName || !newProject.value.classNo) return ElMessage.warning('请填写完整信息！')
+  try {
+    const res = await request.post('/teacher/project/add', newProject.value)
+    if (res.code === 200) { ElMessage.success(res.data); projectDialog.value = false; fetchProjects() } else { ElMessage.error(res.msg) }
+  } catch (e) { ElMessage.error('请求失败') }
 }
 
 const openAddSession = () => { newSession.value = { projectNo: '', roomNo: '', semester: semesterOptions.value.length > 0 ? semesterOptions.value[0].semesterName : '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 }; selectedLabCapacity.value = 100; sessionDialog.value = true }
-const submitAddSession = async () => { 
-  if (!newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) return ElMessage.warning('请填写完整信息！'); 
-  try { 
-    const res = await request.post('/teacher/session/add', newSession.value); 
-    if (res.code === 200) { ElMessage.success(res.data); sessionDialog.value = false; fetchSessions(); activeTab.value = 'sessions' } else { ElMessage.error(res.msg) } 
-  } catch (error) { ElMessage.error('排课失败！') } 
+const submitAddSession = async () => {
+  if (!newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) return ElMessage.warning('请填写完整信息！')
+  try {
+    const res = await request.post('/teacher/session/add', newSession.value)
+    if (res.code === 200) { ElMessage.success(res.data); sessionDialog.value = false; fetchSessions(); activeTab.value = 'sessions' } else { ElMessage.error(res.msg) }
+  } catch (error) { ElMessage.error('排课失败！') }
 }
 
-const deleteSession = async (sessionNo) => { 
-  try { 
-    await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' }); 
-    const res = await request.delete(`/teacher/session/delete?sessionNo=${sessionNo}`); 
-    if (res.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.msg) } 
-  } catch (e) {} 
+const deleteSession = async (sessionNo) => {
+  try {
+    await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' })
+    const res = await request.delete(`/teacher/session/delete?sessionNo=${sessionNo}`)
+    if (res.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.msg) }
+  } catch (e) {}
 }
 const viewBookings = async (session) => { try { const res = await request.get(`/teacher/session-bookings?sessionNo=${session.sessionNo}`); if (res.code === 200) { studentList.value = res.data; bookingDialogVisible.value = true } } catch (error) {} }
-const openReports = async (session) => { try { const res = await request.get(`/report/list-by-project?projectNo=${session.projectNo}`); if (res.code === 200) { reportList.value = res.data; reportDialogVisible.value = true } } catch (error) {} }
-const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } } catch (error) {} }
+const openReports = async (session) => { try { const res = await request.get(`/report/list-by-project?projectNo=${session.projectNo}`); if (res.code === 200) { reportList.value = res.data; reportDialogVisible.value = true } else { ElMessage.error(res.msg) } } catch (error) {} }
+const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } else { ElMessage.error(res.msg) } } catch (error) {} }
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
 
+// ⚠️ 预览：axios 带 token 拉 blob
+const previewFile = async (fileName) => {
+  previewFileName.value = fileName
+  if (!fileName.toLowerCase().endsWith('.pdf')) {
+    ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')
+    return
+  }
+  try {
+    const res = await request.get(`/report/preview/${fileName}`, { responseType: 'blob' })
+    const blob = new Blob([res], { type: 'application/pdf' })
+    if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
+      window.URL.revokeObjectURL(previewFileUrl.value)
+    }
+    previewFileUrl.value = window.URL.createObjectURL(blob)
+    previewDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error('预览失败，请检查登录状态或权限！')
+  }
+}
+
+// ⚠️ 下载：axios 带 token 拉 blob
+const downloadFile = async (fileName) => {
+  try {
+    const res = await request.get(`/report/download/${fileName}`, { responseType: 'blob' })
+    const blob = new Blob([res])
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('下载失败，请检查登录状态或权限！')
+  }
+}
+
 const submitPwd = async () => {
-  const { oldPassword, newPassword, confirmPassword } = pwdForm.value;
-  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！');
-  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！');
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value
+  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
   try {
     const res = await request.post('/teacher/update-password', null, {
       params: { oldPwd: oldPassword, newPwd: newPassword }
-    });
+    })
     if (res.code === 200) {
-      ElMessage.success('修改成功，请重新登录！');
-      pwdDialog.value = false;
+      ElMessage.success('修改成功，请重新登录！')
+      pwdDialog.value = false
       setTimeout(() => {
-        localStorage.removeItem('loginUser');
-        localStorage.removeItem('token');
+        localStorage.removeItem('loginUser')
+        localStorage.removeItem('token')
         router.push('/')
       }, 1000)
     } else {
@@ -1932,9 +2043,15 @@ const submitPublish = async () => {
   if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
   try {
     const res = await request.post('/notice/publish', null, {
-      params: { title: noticeForm.value.title, content: noticeForm.value.content, publisherName: loginUser ? loginUser.name : '管理员', targetRole: 'all' }
+      params: {
+        title: noticeForm.value.title,
+        content: noticeForm.value.content,
+        targetRole: 'all'
+        // ⚠️ 去掉 publisherName，后端从 JWT 取
+      }
     })
     if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
+    else { ElMessage.error(res.msg) }
   } catch (e) { ElMessage.error('发布失败') }
 }
 
