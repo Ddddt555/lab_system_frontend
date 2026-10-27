@@ -17,7 +17,20 @@
         
         <!-- 1. 学生管理 -->
         <el-tab-pane label="学生管理" name="students">
-          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddStudent">新增学生</el-button></div>
+          <div style="margin-bottom: 15px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <el-button type="primary" @click="openAddStudent">新增学生</el-button>
+            <!-- ⚠️ 新增：Excel 导入相关按钮 -->
+            <el-button type="success" @click="downloadTemplate">下载导入模板</el-button>
+            <el-upload
+              action="#"
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleImportExcel"
+              style="display: inline-block;"
+            >
+              <el-button type="warning">批量导入学生</el-button>
+            </el-upload>
+          </div>
           <div class="table-responsive">
             <el-table :data="paginatedStudentList" border style="width: 100%" v-loading="loading">
               <el-table-column prop="studentNo" label="学号" width="150" align="center" />
@@ -269,7 +282,6 @@
       <template #footer><el-button @click="majorDialog = false">取消</el-button><el-button type="primary" @click="submitAddMajor">确认</el-button></template>
     </el-dialog>
 
-    <!-- ⚠️ 修改：新增行政班弹窗 -->
     <el-dialog v-model="adminClassDialog" title="新增行政班" :width="isMobile ? '95%' : '400px'">
       <el-form :model="newAdminClass" label-width="80px">
         <el-form-item label="所属专业" required>
@@ -475,7 +487,6 @@ const majorDialog = ref(false)
 const newMajor = ref({ majorName: '', deptNo: '' })
 
 const adminClassDialog = ref(false)
-// ⚠️ 修改：移除 adminClassName，改为 enrollmentYear 和 classSeq
 const newAdminClass = ref({ majorNo: '', enrollmentYear: new Date().getFullYear(), classSeq: 1 })
 
 const deptDialog = ref(false)
@@ -557,6 +568,47 @@ const submitPublish = async () => {
   } catch (e) { ElMessage.error('发布失败') }
 }
 
+// ⚠️ 新增：Excel 模板下载与导入逻辑（使用 Axios 携带 Token 下载）
+const downloadTemplate = () => {
+  request.get('/admin/student/import-template', {
+    responseType: 'blob'
+  }).then(res => {
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', '学生导入模板.xlsx')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('模板下载成功！')
+  }).catch(e => {
+    console.error(e)
+    ElMessage.error('下载模板失败，请检查后端服务')
+  })
+}
+
+const handleImportExcel = async (file) => {
+  const rawFile = file.raw
+  if (!rawFile) return
+  const formData = new FormData()
+  formData.append('file', rawFile)
+  try {
+    const res = await request.post('/admin/student/import', formData, { 
+      headers: { 'Content-Type': 'multipart/form-data' } 
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      fetchStudents() // 刷新列表
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    ElMessage.error('导入失败，请检查文件格式！')
+  }
+}
+
 const openAddDept = () => { newDept.value = { deptName: '' }; deptDialog.value = true }
 const submitAddDept = async () => {
   if (!newDept.value.deptName) return ElMessage.warning('请输入院系名称')
@@ -581,7 +633,6 @@ const submitAddMajor = async () => {
 }
 const deleteMajor = async (no) => { try { await ElMessageBox.confirm('确定删除该专业？', '警告', { type: 'warning' }); const res = await request.delete(`/admin/major/delete?majorNo=${no}`); if (res.code === 200) { ElMessage.success('删除成功'); fetchMajors(); fetchLogs() } else { ElMessage.error(res.msg) } } catch (e) {} }
 
-// ⚠️ 修改：新增行政班校验逻辑
 const openAddAdminClass = () => { 
   newAdminClass.value = { 
     majorNo: '', 

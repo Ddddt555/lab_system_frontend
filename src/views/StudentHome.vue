@@ -79,9 +79,12 @@
                 <el-tag :type="scope.row.remainingSeats > 0 ? 'success' : 'danger'">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="实验指导书" width="130" align="center">
+            <el-table-column label="实验指导书" width="150" align="center">
               <template #default="scope">
-                <a v-if="scope.row.guideFile" :href="'/api/report/download/' + scope.row.guideFile" target="_blank" style="color: #409EFF; text-decoration: underline;">下载指导书</a>
+                <template v-if="scope.row.guideFile">
+                  <el-button type="primary" link @click="previewFile(scope.row.guideFile)">预览</el-button>
+                  <el-button type="success" link @click="downloadFile(scope.row.guideFile)">下载</el-button>
+                </template>
                 <span v-else style="color: gray;">暂无</span>
               </template>
             </el-table-column>
@@ -105,8 +108,11 @@
                 <p><strong>教师：</strong> {{ item.teacherName }}</p>
                 <p><strong>时间：</strong> {{ formatTeachingTime(item) }}</p>
               </div>
-              <div class="card-footer">
-                <a v-if="item.guideFile" :href="'/api/report/download/' + item.guideFile" target="_blank" class="download-link">下载指导书</a>
+              <div class="card-footer" style="gap: 10px;">
+                <template v-if="item.guideFile">
+                  <el-button type="primary" plain size="small" @click="previewFile(item.guideFile)">预览指导书</el-button>
+                  <el-button type="success" plain size="small" @click="downloadFile(item.guideFile)">下载</el-button>
+                </template>
                 <span v-else class="no-file">暂无指导书</span>
                 <el-button type="primary" size="small" :disabled="item.remainingSeats <= 0" @click="handleBook(item.sessionNo)">预约</el-button>
               </div>
@@ -132,9 +138,12 @@
             <el-table-column label="上课时间" align="center">
               <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
             </el-table-column>
-            <el-table-column label="指导书" width="120" align="center">
+            <el-table-column label="指导书" width="150" align="center">
               <template #default="scope">
-                <a v-if="scope.row.guideFile" :href="'/api/report/download/' + scope.row.guideFile" target="_blank" style="color: #409EFF; text-decoration: underline;">下载</a>
+                <template v-if="scope.row.guideFile">
+                  <el-button type="primary" link @click="previewFile(scope.row.guideFile)">预览</el-button>
+                  <el-button type="success" link @click="downloadFile(scope.row.guideFile)">下载</el-button>
+                </template>
                 <span v-else style="color: gray;">暂无</span>
               </template>
             </el-table-column>
@@ -173,8 +182,10 @@
                 <p><strong>时间：</strong> {{ formatTeachingTime(item) }}</p>
                 <p v-if="item.comment"><strong>评语：</strong> {{ item.comment }}</p>
               </div>
-              <div class="card-footer" style="justify-content: flex-start; gap: 10px;">
-                <a v-if="item.guideFile" :href="'/api/report/download/' + item.guideFile" target="_blank" class="download-link">下载指导书</a>
+              <div class="card-footer" style="justify-content: flex-start; gap: 10px; flex-wrap: wrap;">
+                <template v-if="item.guideFile">
+                  <el-button type="primary" plain size="small" @click="previewFile(item.guideFile)">预览指导书</el-button>
+                </template>
                 <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
                 <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
                 <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
@@ -220,7 +231,10 @@
            <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
         </el-table-column>
         <el-table-column label="文件操作" align="center">
-           <template #default="scope"><a :href="'/api/report/download/' + scope.row.fileUrl" target="_blank" style="color: #409EFF; text-decoration: underline;">点击下载</a></template>
+           <template #default="scope">
+             <el-button type="primary" link @click="previewFile(scope.row.fileUrl)">预览</el-button>
+             <el-button type="success" link @click="downloadFile(scope.row.fileUrl)">下载</el-button>
+           </template>
         </el-table-column>
         <el-table-column prop="score" label="得分" width="80" align="center">
            <template #default="scope"><span v-if="scope.row.score !== null" style="color: red;">{{ scope.row.score }}</span><span v-else style="color: gray;">-</span></template>
@@ -235,6 +249,17 @@
         <el-form-item label="确认密码" required><el-input v-model="pwdForm.confirmPassword" type="password" show-password /></el-form-item>
       </el-form>
       <template #footer><el-button @click="pwdDialog = false">取消</el-button><el-button type="primary" @click="submitPwd">确认修改</el-button></template>
+    </el-dialog>
+
+    <!-- ⚠️ 在线预览弹窗 -->
+    <el-dialog v-model="previewDialogVisible" :title="'在线预览 - ' + previewFileName" :width="isMobile ? '100%' : '80%'" top="5vh" destroy-on-close>
+      <div style="width: 100%; height: 70vh;">
+        <iframe v-if="previewFileUrl" :src="previewFileUrl" width="100%" height="100%" frameborder="0"></iframe>
+      </div>
+      <template #footer>
+        <el-button @click="previewDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="downloadFile(previewFileName)">下载文件</el-button>
+      </template>
     </el-dialog>
 
     <el-drawer v-model="noticeDrawerVisible" title="我的通知" :size="isMobile ? '100%' : '400px'">
@@ -284,7 +309,6 @@ const loading = ref(false)
 const myBookingList = ref([])
 const bookingLoading = ref(false)
 
-// ⚠️ 新增：选课相关变量
 const availableClasses = ref([])
 const classPage = ref(1)
 
@@ -292,7 +316,6 @@ const sessionPage = ref(1)
 const bookingPage = ref(1)
 const pageSize = ref(10)
 
-// ⚠️ 新增：选课分页
 const paginatedClassList = computed(() => availableClasses.value.slice((classPage.value - 1) * pageSize.value, classPage.value * pageSize.value))
 const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage.value - 1) * pageSize.value, sessionPage.value * pageSize.value))
 const paginatedBookingList = computed(() => myBookingList.value.slice((bookingPage.value - 1) * pageSize.value, bookingPage.value * pageSize.value))
@@ -305,6 +328,10 @@ const uploadProjectName = ref('')
 
 const historyDialogVisible = ref(false)
 const historyList = ref([])
+
+const previewDialogVisible = ref(false)
+const previewFileUrl = ref('')
+const previewFileName = ref('')
 
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -340,7 +367,6 @@ const handleTabChange = (name) => {
   else if (name === 'select-class') fetchAvailableClasses();
 }
 
-// ⚠️ 新增：选课列表拉取
 const fetchAvailableClasses = async () => {
   loading.value = true
   try {
@@ -351,7 +377,6 @@ const fetchAvailableClasses = async () => {
   }
 }
 
-// ⚠️ 新增：加入班级
 const selectClass = async (classNo) => {
   try {
     const res = await request.post(`/student/select-class?classNo=${classNo}`)
@@ -366,7 +391,6 @@ const selectClass = async (classNo) => {
   }
 }
 
-// ⚠️ 新增：退课
 const dropClass = async (classNo) => {
   try {
     await ElMessageBox.confirm('确定要退出该教学班吗？', '警告', { type: 'warning' })
@@ -443,6 +467,23 @@ const openHistory = async (row) => {
     const res = await request.get(`/report/my-versions?studentNo=${currentStudentNo}&projectNo=${row.projectNo}`); 
     if (res.code === 200) { historyList.value = res.data; historyDialogVisible.value = true } 
   } catch (error) { ElMessage.error('获取版本历史失败！') } 
+}
+
+// ⚠️ 修正：直接通过后端 preview URL 预览
+const previewFile = (fileName) => {
+  previewFileName.value = fileName
+  if (!fileName.toLowerCase().endsWith('.pdf')) {
+    ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')
+    return
+  }
+  // 换成了 /preview/
+  previewFileUrl.value = `/api/report/preview/${fileName}`
+  previewDialogVisible.value = true
+}
+
+// ⚠️ 下载不变
+const downloadFile = (fileName) => {
+  window.open(`/api/report/download/${fileName}`, '_blank')
 }
 
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }

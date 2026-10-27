@@ -83,10 +83,12 @@
 
         <!-- 4. 成绩管理 -->
         <el-tab-pane label="成绩管理" name="scores">
-          <div style="margin-bottom: 15px;">
+          <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
             <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="fetchCourseScores">
               <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
             </el-select>
+            <!-- 导出成绩单按钮 -->
+            <el-button type="success" v-if="selectedClassNo" @click="exportScores">导出成绩单</el-button>
           </div>
           <div class="table-responsive">
             <el-table :data="paginatedScoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
@@ -151,8 +153,12 @@
           <el-table-column prop="submitTime" label="提交时间" width="150" align="center">
             <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
           </el-table-column>
-          <el-table-column label="报告文件" width="120" align="center">
-            <template #default="scope"><a :href="'/api/report/download/' + scope.row.fileUrl" target="_blank" style="color: #409EFF; text-decoration: underline;">点击下载</a></template>
+          <!-- ⚠️ 修改：加入在线预览和下载两个按钮 -->
+          <el-table-column label="报告文件" width="150" align="center">
+            <template #default="scope">
+              <el-button type="primary" link @click="previewFile(scope.row.fileUrl)">在线预览</el-button>
+              <el-button type="success" link @click="downloadFile(scope.row.fileUrl)">下载</el-button>
+            </template>
           </el-table-column>
           <el-table-column label="分数" width="80" align="center">
              <template #default="scope">{{ scope.row.score !== null ? scope.row.score : '未批阅' }}</template>
@@ -164,7 +170,6 @@
       </div>
     </el-dialog>
 
-    <!-- ⚠️ 修改：移除了项目号输入框 -->
     <el-dialog v-model="projectDialog" title="发布新实验项目" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newProject" label-width="100px">
         <el-form-item label="项目名称" required><el-input v-model="newProject.projectName" /></el-form-item>
@@ -179,7 +184,6 @@
       <template #footer><el-button @click="projectDialog = false">取消</el-button><el-button type="primary" @click="submitAddProject">确认发布</el-button></template>
     </el-dialog>
 
-    <!-- ⚠️ 修改：移除了场次号输入框 -->
     <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newSession" label-width="80px">
         <el-form-item label="实验项目" required>
@@ -234,6 +238,17 @@
       <template #footer>
         <el-button @click="publishDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="submitPublish">发布</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ⚠️ 在线预览弹窗 -->
+    <el-dialog v-model="previewDialogVisible" :title="'在线预览 - ' + previewFileName" :width="isMobile ? '100%' : '80%'" top="5vh" destroy-on-close>
+      <div style="width: 100%; height: 70vh;">
+        <iframe v-if="previewFileUrl" :src="previewFileUrl" width="100%" height="100%" frameborder="0"></iframe>
+      </div>
+      <template #footer>
+        <el-button @click="previewDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="downloadFile(previewFileName)">下载文件</el-button>
       </template>
     </el-dialog>
 
@@ -295,13 +310,16 @@ const reportDialogVisible = ref(false)
 const reportList = ref([])
 
 const projectDialog = ref(false)
-// ⚠️ 移除 projectNo
 const newProject = ref({ projectName: '', classNo: '', hours: 2, standard: '' })
 
 const sessionDialog = ref(false)
-// ⚠️ 移除 sessionNo
 const newSession = ref({ projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
 const selectedLabCapacity = ref(100)
+
+// ⚠️ 在线预览变量
+const previewDialogVisible = ref(false)
+const previewFileUrl = ref('')
+const previewFileName = ref('')
 
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -424,6 +442,26 @@ const saveScore = async (studentNo) => {
   } catch (error) { ElMessage.error('保存失败') } 
 }
 
+const exportScores = () => {
+  if (!selectedClassNo.value) return
+  request.get(`/teacher/score/export?classNo=${selectedClassNo.value}`, {
+    responseType: 'blob'
+  }).then(res => {
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `成绩单_${selectedClassNo.value}_${new Date().getTime()}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }).catch(e => {
+    console.error(e)
+    ElMessage.error('导出失败，请检查后端服务')
+  })
+}
+
 const handleLabChange = (roomNo) => { const lab = labOptions.value.find(r => r.roomNo === roomNo); if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity } }
 const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}`; }
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
@@ -469,6 +507,23 @@ const viewBookings = async (session) => { try { const res = await request.get(`/
 const openReports = async (session) => { try { const res = await request.get(`/report/list-by-project?projectNo=${session.projectNo}`); if (res.code === 200) { reportList.value = res.data; reportDialogVisible.value = true } } catch (error) {} }
 const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } } catch (error) {} }
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
+
+// ⚠️ 修正：直接通过后端 preview URL 预览
+const previewFile = (fileName) => {
+  previewFileName.value = fileName
+  if (!fileName.toLowerCase().endsWith('.pdf')) {
+    ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')
+    return
+  }
+  // 换成了 /preview/
+  previewFileUrl.value = `/api/report/preview/${fileName}`
+  previewDialogVisible.value = true
+}
+
+// ⚠️ 下载不变
+const downloadFile = (fileName) => {
+  window.open(`/api/report/download/${fileName}`, '_blank')
+}
 
 const submitPwd = async () => {
   const { oldPassword, newPassword, confirmPassword } = pwdForm.value;
