@@ -15,7 +15,7 @@
       <el-tabs v-model="activeTab" class="demo-tabs" @tab-change="handleTabChange">
 
         <el-tab-pane label="选课中心" name="select-class">
-          <el-table v-if="!isMobile" :data="paginatedClassList" border style="width: 100%" v-loading="loading">
+          <el-table v-if="!isMobile" :data="availableClasses" border style="width: 100%" v-loading="loading">
             <el-table-column prop="classNo" label="教学班号" width="150" align="center" />
             <el-table-column prop="courseName" label="课程名称" min-width="180" align="center" />
             <el-table-column prop="teacherName" label="任课教师" width="120" align="center" />
@@ -35,7 +35,7 @@
           </el-table>
 
           <div v-else class="mobile-card-list" v-loading="loading">
-            <el-card v-for="item in paginatedClassList" :key="item.classNo" class="mobile-card">
+            <el-card v-for="item in availableClasses" :key="item.classNo" class="mobile-card">
               <div class="card-header">
                 <span class="project-name">{{ item.courseName }}</span>
                 <el-tag v-if="item.isSelected" type="success" size="small">已加入</el-tag>
@@ -58,13 +58,15 @@
             v-model:page-size="pageSize"
             :page-sizes="[5, 10, 20, 50]"
             :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
-            :total="availableClasses.length"
+            :total="totalClasses"
+            @current-change="handleClassPageChange"
+            @size-change="fetchAvailableClasses"
             style="margin-top: 15px; justify-content: center;"
           />
         </el-tab-pane>
 
         <el-tab-pane label="可预约的实验场次" name="all-sessions">
-          <el-table v-if="!isMobile" :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
+          <el-table v-if="!isMobile" :data="sessionList" border style="width: 100%" v-loading="loading">
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
             <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
             <el-table-column prop="teacherName" label="指导教师" width="100" align="center" />
@@ -93,7 +95,7 @@
           </el-table>
 
           <div v-else class="mobile-card-list" v-loading="loading">
-            <el-card v-for="item in paginatedSessionList" :key="item.sessionNo" class="mobile-card">
+            <el-card v-for="item in sessionList" :key="item.sessionNo" class="mobile-card">
               <div class="card-header">
                 <span class="project-name">{{ item.projectName }}</span>
                 <el-tag :type="item.remainingSeats > 0 ? 'success' : 'danger'" size="small">
@@ -121,13 +123,15 @@
             v-model:page-size="pageSize"
             :page-sizes="[5, 10, 20, 50]"
             :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
-            :total="sessionList.length"
+            :total="totalSessions"
+            @current-change="handleSessionPageChange"
+            @size-change="fetchSessions"
             style="margin-top: 15px; justify-content: center;"
           />
         </el-tab-pane>
 
         <el-tab-pane label="我的预约记录" name="my-bookings">
-          <el-table v-if="!isMobile" :data="paginatedBookingList" border style="width: 100%" v-loading="bookingLoading">
+          <el-table v-if="!isMobile" :data="myBookingList" border style="width: 100%" v-loading="bookingLoading">
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
             <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
             <el-table-column prop="teacherName" label="指导教师" width="100" align="center" />
@@ -166,7 +170,7 @@
           </el-table>
 
           <div v-else class="mobile-card-list" v-loading="bookingLoading">
-            <el-card v-for="item in paginatedBookingList" :key="item.bookingNo" class="mobile-card">
+            <el-card v-for="item in myBookingList" :key="item.bookingNo" class="mobile-card">
               <div class="card-header">
                 <span class="project-name">{{ item.projectName }}</span>
                 <el-tag v-if="item.score !== null && item.score !== undefined" type="danger" size="small">得分: {{ item.score }}</el-tag>
@@ -194,7 +198,9 @@
             v-model:page-size="pageSize"
             :page-sizes="[5, 10, 20, 50]"
             :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
-            :total="myBookingList.length"
+            :total="totalBookings"
+            @current-change="handleBookingPageChange"
+            @size-change="fetchMyBookings"
             style="margin-top: 15px; justify-content: center;"
           />
         </el-tab-pane>
@@ -287,35 +293,22 @@ const screenWidth = ref(window.innerWidth)
 const isMobile = computed(() => screenWidth.value < 768)
 const handleResize = () => { screenWidth.value = window.innerWidth }
 
-onMounted(() => {
-  window.addEventListener('resize', handleResize)
-  fetchSessions()
-  fetchNotices()
-  fetchAvailableClasses()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
-    window.URL.revokeObjectURL(previewFileUrl.value)
-  }
-})
-
 const activeTab = ref('select-class')
+const availableClasses = ref([])
 const sessionList = ref([])
-const loading = ref(false)
 const myBookingList = ref([])
+
+const loading = ref(false)
 const bookingLoading = ref(false)
 
-const availableClasses = ref([])
 const classPage = ref(1)
 const sessionPage = ref(1)
 const bookingPage = ref(1)
 const pageSize = ref(10)
 
-const paginatedClassList = computed(() => availableClasses.value.slice((classPage.value - 1) * pageSize.value, classPage.value * pageSize.value))
-const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage.value - 1) * pageSize.value, sessionPage.value * pageSize.value))
-const paginatedBookingList = computed(() => myBookingList.value.slice((bookingPage.value - 1) * pageSize.value, bookingPage.value * pageSize.value))
+const totalClasses = ref(0)
+const totalSessions = ref(0)
+const totalBookings = ref(0)
 
 const uploadDialogVisible = ref(false)
 const uploading = ref(false)
@@ -337,26 +330,19 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-const fetchNotices = async () => {
-  try {
-    const res = await request.get('/notice/list?role=student')
-    if (res.code === 200) {
-      noticeList.value = res.data
-      if (noticeList.value.length > 0) {
-        const latestTime = new Date(noticeList.value[0].createTime).getTime()
-        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
-        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
-        hasUnread.value = latestTime > lastReadTime
-      }
-    }
-  } catch (e) {}
-}
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+  fetchSessions()
+  fetchNotices()
+  fetchAvailableClasses()
+})
 
-const openNoticeDrawer = () => {
-  noticeDrawerVisible.value = true
-  hasUnread.value = false
-  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime)
-}
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(previewFileUrl.value)
+  }
+})
 
 const handleTabChange = (name) => {
   if (name === 'my-bookings') fetchMyBookings()
@@ -364,13 +350,38 @@ const handleTabChange = (name) => {
   else if (name === 'select-class') fetchAvailableClasses()
 }
 
+// 分页事件
+const handleClassPageChange = (val) => { classPage.value = val; fetchAvailableClasses(); }
+const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
+const handleBookingPageChange = (val) => { bookingPage.value = val; fetchMyBookings(); }
+
 const fetchAvailableClasses = async () => {
   loading.value = true
   try {
-    const res = await request.get('/student/available-classes')
-    if (res.code === 200) availableClasses.value = res.data
+    const res = await request.get('/student/available-classes', { params: { page: classPage.value, size: pageSize.value } })
+    if (res.code === 200) { availableClasses.value = res.data.records; totalClasses.value = res.data.total; }
   } finally {
     loading.value = false
+  }
+}
+
+const fetchSessions = async () => {
+  loading.value = true
+  try {
+    const res = await request.get('/student/session/list', { params: { page: sessionPage.value, size: pageSize.value } })
+    if (res.code === 200) { sessionList.value = res.data.records; totalSessions.value = res.data.total; }
+  } finally {
+    loading.value = false
+  }
+}
+
+const fetchMyBookings = async () => {
+  bookingLoading.value = true
+  try {
+    const res = await request.get('/student/my-bookings', { params: { page: bookingPage.value, size: pageSize.value } })
+    if (res.code === 200) { myBookingList.value = res.data.records; totalBookings.value = res.data.total; }
+  } finally {
+    bookingLoading.value = false
   }
 }
 
@@ -399,26 +410,6 @@ const dropClass = async (classNo) => {
       ElMessage.error(res.msg)
     }
   } catch (e) {}
-}
-
-const fetchSessions = async () => {
-  loading.value = true
-  try {
-    const res = await request.get('/student/session/list')
-    if (res.code === 200) sessionList.value = res.data
-  } finally {
-    loading.value = false
-  }
-}
-
-const fetchMyBookings = async () => {
-  bookingLoading.value = true
-  try {
-    const res = await request.get('/student/my-bookings')
-    if (res.code === 200) myBookingList.value = res.data
-  } finally {
-    bookingLoading.value = false
-  }
 }
 
 const formatTeachingTime = (row) => {
@@ -459,7 +450,6 @@ const submitUpload = async () => {
   const formData = new FormData()
   formData.append('file', uploadFile.value)
   formData.append('projectNo', uploadProjectNo.value)
-  // ⚠️ 不再传 studentNo，后端从 JWT 取
   try {
     const res = await request.post('/report/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     if (res.code === 200) { ElMessage.success(res.data); uploadDialogVisible.value = false; fetchMyBookings() }
@@ -470,13 +460,11 @@ const submitUpload = async () => {
 
 const openHistory = async (row) => {
   try {
-    // ⚠️ 不再传 studentNo，后端从 JWT 取
     const res = await request.get(`/report/my-versions?projectNo=${row.projectNo}`)
     if (res.code === 200) { historyList.value = res.data; historyDialogVisible.value = true }
   } catch (error) { ElMessage.error('获取版本历史失败！') }
 }
 
-// ⚠️ 预览：axios 带 token 拉 blob，再交给 iframe
 const previewFile = async (fileName) => {
   previewFileName.value = fileName
   if (!fileName.toLowerCase().endsWith('.pdf')) {
@@ -496,7 +484,6 @@ const previewFile = async (fileName) => {
   }
 }
 
-// ⚠️ 下载：axios 带 token 拉 blob
 const downloadFile = async (fileName) => {
   try {
     const res = await request.get(`/report/download/${fileName}`, { responseType: 'blob' })
@@ -512,6 +499,27 @@ const downloadFile = async (fileName) => {
   } catch (e) {
     ElMessage.error('下载失败，请检查登录状态或权限！')
   }
+}
+
+const fetchNotices = async () => {
+  try {
+    const res = await request.get('/notice/list?role=student')
+    if (res.code === 200) {
+      noticeList.value = res.data
+      if (noticeList.value.length > 0) {
+        const latestTime = new Date(noticeList.value[0].createTime).getTime()
+        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
+        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
+        hasUnread.value = latestTime > lastReadTime
+      }
+    }
+  } catch (e) {}
+}
+
+const openNoticeDrawer = () => {
+  noticeDrawerVisible.value = true
+  hasUnread.value = false
+  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime)
 }
 
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }

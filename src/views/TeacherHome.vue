@@ -17,7 +17,7 @@
 
         <el-tab-pane label="我负责的场次" name="sessions">
           <div class="table-responsive">
-            <el-table :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
+            <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
               <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
               <el-table-column prop="projectName" label="实验项目名称" width="200" align="center" />
               <el-table-column label="上课时间" align="center" min-width="180">
@@ -34,13 +34,13 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="sessionList.length" style="margin-top: 15px; justify-content: center;" />
+          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalSessions" @current-change="handleSessionPageChange" @size-change="fetchSessions" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
         <el-tab-pane label="实验项目管理" name="projects">
           <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddProject">发布新实验项目</el-button></div>
           <div class="table-responsive">
-            <el-table :data="paginatedProjectList" border style="width: 100%" v-loading="loading">
+            <el-table :data="projectList" border style="width: 100%" v-loading="loading">
               <el-table-column prop="projectNo" label="项目号" width="120" align="center" />
               <el-table-column prop="projectName" label="项目名称" width="180" align="center" />
               <el-table-column prop="classNo" label="所属教学班" width="150" align="center" />
@@ -57,13 +57,13 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-pagination v-model:current-page="projectPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="projectList.length" style="margin-top: 15px; justify-content: center;" />
+          <el-pagination v-model:current-page="projectPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalProjects" @current-change="handleProjectPageChange" @size-change="fetchProjects" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
         <el-tab-pane label="安排实验场次" name="schedule">
           <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddSession">安排新场次</el-button></div>
           <div class="table-responsive">
-            <el-table :data="paginatedSessionList" border style="width: 100%" v-loading="loading">
+            <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
               <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
               <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
               <el-table-column label="上课时间" align="center" min-width="180">
@@ -75,18 +75,18 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="sessionList.length" style="margin-top: 15px; justify-content: center;" />
+          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalSessions" @current-change="handleSessionPageChange" @size-change="fetchSessions" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
         <el-tab-pane label="成绩管理" name="scores">
           <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-            <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="fetchCourseScores">
+            <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="handleClassChange">
               <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
             </el-select>
             <el-button type="success" v-if="selectedClassNo" @click="exportScores">导出成绩单</el-button>
           </div>
           <div class="table-responsive">
-            <el-table :data="paginatedScoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
+            <el-table :data="scoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
               <el-table-column prop="studentNo" label="学号" width="150" align="center" />
               <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
               <el-table-column label="平时成绩 (30%)" width="150" align="center">
@@ -103,7 +103,7 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-pagination v-if="selectedClassNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="scoreList.length" style="margin-top: 15px; justify-content: center;" />
+          <el-pagination v-if="selectedClassNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalScores" @current-change="handleScorePageChange" @size-change="fetchCourseScores" style="margin-top: 15px; justify-content: center;" />
         </el-tab-pane>
 
         <el-tab-pane label="数据报表" name="stats">
@@ -179,8 +179,9 @@
     <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newSession" label-width="80px">
         <el-form-item label="实验项目" required>
+          <!-- ⚠️ 下拉框绑定 allProjects -->
           <el-select v-model="newSession.projectNo" placeholder="请选择项目" style="width: 100%">
-            <el-option v-for="p in projectList" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
+            <el-option v-for="p in allProjects" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
           </el-select>
         </el-form-item>
         <el-form-item label="实验室" required>
@@ -278,21 +279,24 @@ const handleResize = () => { screenWidth.value = window.innerWidth }
 const activeTab = ref('sessions')
 const loading = ref(false)
 
+// 表格数据（分页）
 const sessionList = ref([])
 const projectList = ref([])
+const scoreList = ref([])
+const totalSessions = ref(0)
+const totalProjects = ref(0)
+const totalScores = ref(0)
+
+// 下拉框数据（全量）
 const myClassOptions = ref([])
 const labOptions = ref([])
 const semesterOptions = ref([])
-const scoreList = ref([])
+const allProjects = ref([]) // ⚠️ 专门用于“安排实验场次”弹窗的项目下拉框
 
 const sessionPage = ref(1)
 const projectPage = ref(1)
 const scorePage = ref(1)
 const pageSize = ref(10)
-
-const paginatedSessionList = computed(() => sessionList.value.slice((sessionPage.value - 1) * pageSize.value, sessionPage.value * pageSize.value))
-const paginatedProjectList = computed(() => projectList.value.slice((projectPage.value - 1) * pageSize.value, projectPage.value * pageSize.value))
-const paginatedScoreList = computed(() => scoreList.value.slice((scorePage.value - 1) * pageSize.value, scorePage.value * pageSize.value))
 
 const selectedClassNo = ref('')
 const bookingDialogVisible = ref(false)
@@ -327,6 +331,7 @@ let rateChart = null
 
 onMounted(() => {
   fetchSessions(); fetchProjects(); fetchMyClasses(); fetchLabs(); fetchSemesters(); fetchNotices();
+  fetchAllProjectsForDropdown(); // ⚠️ 初始化时拉取一次全量项目
   window.addEventListener('resize', handleResize)
 })
 
@@ -343,16 +348,51 @@ const handleTabChange = (name) => {
   if (name === 'stats') nextTick(() => renderCharts())
 }
 
+// ========== 表格分页请求 ==========
 const fetchSessions = async () => {
   loading.value = true
   try {
-    const res = await request.get(`/teacher/my-sessions`)
-    if (res.code === 200) sessionList.value = res.data
+    const res = await request.get('/teacher/my-sessions', { params: { page: sessionPage.value, size: pageSize.value } })
+    if (res.code === 200) { sessionList.value = res.data.records; totalSessions.value = res.data.total; }
   } finally {
     loading.value = false
   }
 }
-const fetchProjects = async () => { try { const res = await request.get('/teacher/project/list'); if (res.code === 200) projectList.value = res.data } catch (e) {} }
+
+const fetchProjects = async () => { 
+  try { 
+    const res = await request.get('/teacher/project/list', { params: { page: projectPage.value, size: pageSize.value } }); 
+    if (res.code === 200) { projectList.value = res.data.records; totalProjects.value = res.data.total; } 
+  } catch (e) {} 
+}
+
+const fetchCourseScores = async () => { 
+  if (!selectedClassNo.value) return; 
+  loading.value = true; 
+  try { 
+    const res = await request.get('/teacher/scores', { params: { classNo: selectedClassNo.value, page: scorePage.value, size: pageSize.value } }); 
+    if (res.code === 200) { scoreList.value = res.data.records; totalScores.value = res.data.total; } 
+  } catch (e) { 
+    ElMessage.error('获取成绩单失败') 
+  } finally { 
+    loading.value = false 
+  } 
+}
+
+// 页码切换事件
+const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
+const handleProjectPageChange = (val) => { projectPage.value = val; fetchProjects(); }
+const handleScorePageChange = (val) => { scorePage.value = val; fetchCourseScores(); }
+const handleClassChange = () => { scorePage.value = 1; fetchCourseScores(); }
+
+// ========== 下拉框全量请求 ==========
+const fetchAllProjectsForDropdown = async () => {
+  try {
+    const res = await request.get('/teacher/project/list'); // 不传分页参数，拿全量
+    if (res.code === 200) allProjects.value = res.data;
+  } catch (e) {}
+}
+
 const fetchMyClasses = async () => { try { const res = await request.get('/teacher/my-classes'); if (res.code === 200) myClassOptions.value = res.data } catch (e) {} }
 const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
 const fetchSemesters = async () => {
@@ -386,7 +426,6 @@ const openPublishDialog = () => { noticeForm.value = { title: '', content: '' };
 const submitPublish = async () => {
   if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
   try {
-    // ⚠️ 不再传 publisherName，后端从 JWT 取真实姓名
     const res = await request.post('/notice/publish', null, {
       params: { title: noticeForm.value.title, content: noticeForm.value.content, targetRole: 'student' }
     })
@@ -422,7 +461,6 @@ const renderCharts = async () => {
   }
 }
 
-const fetchCourseScores = async () => { if (!selectedClassNo.value) return; loading.value = true; try { const res = await request.get(`/teacher/scores?classNo=${selectedClassNo.value}`); if (res.code === 200) scoreList.value = res.data } catch (e) { ElMessage.error('获取成绩单失败') } finally { loading.value = false } }
 const saveScore = async (studentNo) => {
   const row = scoreList.value.find(item => item.studentNo === studentNo)
   if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩')
@@ -473,7 +511,12 @@ const submitAddProject = async () => {
   if (!newProject.value.projectName || !newProject.value.classNo) return ElMessage.warning('请填写完整信息！')
   try {
     const res = await request.post('/teacher/project/add', newProject.value)
-    if (res.code === 200) { ElMessage.success(res.data); projectDialog.value = false; fetchProjects() } else { ElMessage.error(res.msg) }
+    if (res.code === 200) { 
+      ElMessage.success(res.data); 
+      projectDialog.value = false; 
+      fetchProjects(); 
+      fetchAllProjectsForDropdown(); // 项目新增后，同步更新下拉框
+    } else { ElMessage.error(res.msg) }
   } catch (e) { ElMessage.error('请求失败') }
 }
 
@@ -498,7 +541,6 @@ const openReports = async (session) => { try { const res = await request.get(`/r
 const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } else { ElMessage.error(res.msg) } } catch (error) {} }
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
 
-// ⚠️ 预览：axios 带 token 拉 blob
 const previewFile = async (fileName) => {
   previewFileName.value = fileName
   if (!fileName.toLowerCase().endsWith('.pdf')) {
@@ -518,7 +560,6 @@ const previewFile = async (fileName) => {
   }
 }
 
-// ⚠️ 下载：axios 带 token 拉 blob
 const downloadFile = async (fileName) => {
   try {
     const res = await request.get(`/report/download/${fileName}`, { responseType: 'blob' })
