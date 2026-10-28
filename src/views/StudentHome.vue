@@ -130,6 +130,33 @@
           />
         </el-tab-pane>
 
+        <!-- ⚠️ 日历视图 -->
+        <el-tab-pane label="我的周课表" name="calendar">
+          <div class="calendar-container" v-loading="calendarLoading">
+            <div class="calendar-header">
+              <div class="time-col">节次</div>
+              <div v-for="day in 7" :key="day" class="day-col">
+                {{ ['周一','周二','周三','周四','周五','周六','周日'][day-1] }}
+              </div>
+            </div>
+            <div class="calendar-body">
+              <div v-for="period in ['1-2节', '3-4节', '5-6节', '7-8节', '9-10节']" :key="period" class="calendar-row">
+                <div class="time-col">{{ period }}</div>
+                <div v-for="day in 7" :key="day" class="day-col cell">
+                  <div 
+                    v-for="course in getCoursesByTime(period, day)" 
+                    :key="course.sessionNo"
+                    class="course-block"
+                  >
+                    <div class="course-name">{{ course.projectName }}</div>
+                    <div class="course-room">{{ course.teacherName }} | 第{{ course.weekNum }}周</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
         <el-tab-pane label="我的预约记录" name="my-bookings">
           <el-table v-if="!isMobile" :data="myBookingList" border style="width: 100%" v-loading="bookingLoading">
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
@@ -159,12 +186,14 @@
                 <span v-else style="color: gray;">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="260" align="center">
+            <el-table-column label="操作" width="300" align="center">
               <template #default="scope">
                 <el-button type="success" size="small" @click="openUploadDialog(scope.row)">上传报告</el-button>
-                <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 10px;">版本历史</el-button>
+                <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 5px;">版本历史</el-button>
+                <!-- ⚠️ 新增：签到按钮 -->
+                <el-button type="warning" size="small" @click="openSignDialog(scope.row)">签到</el-button>
                 <el-button v-if="!scope.row.isGraded" type="danger" size="small" @click="cancelBooking(scope.row.bookingNo)">取消预约</el-button>
-                <el-tag v-else type="info" effect="plain">已批阅</el-tag>
+                <el-tag v-else type="info" effect="plain" style="margin-left:5px;">已批阅</el-tag>
               </template>
             </el-table-column>
           </el-table>
@@ -188,6 +217,8 @@
                 </template>
                 <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
                 <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
+                <!-- ⚠️ 新增：移动端签到按钮 -->
+                <el-button type="warning" plain size="small" @click="openSignDialog(item)">签到</el-button>
                 <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
               </div>
             </el-card>
@@ -262,6 +293,24 @@
       </template>
     </el-dialog>
 
+    <!-- ⚠️ 新增：学生端签到弹窗 -->
+    <el-dialog v-model="signDialogVisible" title="课堂签到" :width="isMobile ? '90%' : '400px'" center>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <p style="color: #666;">正在为 <strong style="color: #409EFF;">{{ signProjectName }}</strong> 签到</p>
+        <el-input 
+          v-model="signCode" 
+          placeholder="请输入老师提供的 6 位数字" 
+          size="large" 
+          maxlength="6" 
+          style="font-size: 28px; text-align: center; letter-spacing: 8px; margin-top: 15px;" 
+        />
+      </div>
+      <template #footer>
+        <el-button @click="signDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitSign" :loading="signing">确认签到</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="noticeDrawerVisible" title="我的通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
@@ -298,6 +347,10 @@ const availableClasses = ref([])
 const sessionList = ref([])
 const myBookingList = ref([])
 
+// ⚠️ 日历视图数据源
+const calendarEvents = ref([])
+const calendarLoading = ref(false)
+
 const loading = ref(false)
 const bookingLoading = ref(false)
 
@@ -330,6 +383,13 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
+// ⚠️ 新增：签到相关变量
+const signDialogVisible = ref(false)
+const signProjectName = ref('')
+const signSessionNo = ref('')
+const signCode = ref('')
+const signing = ref(false)
+
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   fetchSessions()
@@ -348,6 +408,7 @@ const handleTabChange = (name) => {
   if (name === 'my-bookings') fetchMyBookings()
   else if (name === 'all-sessions') fetchSessions()
   else if (name === 'select-class') fetchAvailableClasses()
+  else if (name === 'calendar') fetchCalendarData()
 }
 
 // 分页事件
@@ -373,6 +434,28 @@ const fetchSessions = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 获取全量预约记录用于渲染日历
+const fetchCalendarData = async () => {
+  calendarLoading.value = true
+  try {
+    const res = await request.get('/student/my-bookings')
+    if (res.code === 200) {
+      calendarEvents.value = res.data.records ? res.data.records : res.data
+    }
+  } catch (e) {
+    ElMessage.error('获取课表数据失败')
+  } finally {
+    calendarLoading.value = false
+  }
+}
+
+// 筛选对应时间格的课程
+const getCoursesByTime = (period, day) => {
+  return calendarEvents.value.filter(item => 
+    item.period === period && item.dayOfWeek === day
+  )
 }
 
 const fetchMyBookings = async () => {
@@ -542,10 +625,43 @@ const submitPwd = async () => {
   } catch (error) { ElMessage.error('网络错误，修改失败！') }
 }
 
-const logout = () => {
-  localStorage.removeItem('loginUser')
-  localStorage.removeItem('token')
-  router.push('/')
+const logout = async () => {
+  try {
+    await request.post('/logout')
+  } catch (e) {
+    // 忽略网络错误
+  } finally {
+    localStorage.removeItem('loginUser')
+    localStorage.removeItem('token')
+    router.push('/')
+  }
+}
+
+// ⚠️ 新增：打开签到弹窗
+const openSignDialog = (row) => {
+  signSessionNo.value = row.sessionNo
+  signProjectName.value = row.projectName
+  signCode.value = ''
+  signDialogVisible.value = true
+}
+
+// ⚠️ 新增：提交签到
+const submitSign = async () => {
+  if (!signCode.value || signCode.value.length !== 6) return ElMessage.warning('请输入完整的 6 位签到码！')
+  signing.value = true
+  try {
+    const res = await request.post(`/student/attendance/sign?sessionNo=${signSessionNo.value}&code=${signCode.value}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      signDialogVisible.value = false
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    ElMessage.error('签到失败，请检查网络')
+  } finally {
+    signing.value = false
+  }
 }
 </script>
 
@@ -562,6 +678,75 @@ const logout = () => {
 .card-body p { margin: 5px 0; font-size: 14px; color: #606266; line-height: 1.5; }
 .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ebeef5; flex-wrap: wrap; }
 .no-file { color: #909399; font-size: 14px; }
+
+/* ⚠️ 日历视图样式 */
+.calendar-container {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-top: 10px;
+}
+.calendar-header, .calendar-row {
+  display: flex;
+  min-width: 800px;
+}
+.calendar-header {
+  background-color: #f5f7fa;
+  font-weight: bold;
+}
+.time-col {
+  width: 100px;
+  text-align: center;
+  border-right: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fafafa;
+  font-size: 14px;
+  color: #606266;
+}
+.day-col {
+  flex: 1;
+  text-align: center;
+  border-right: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
+  padding: 10px 0;
+}
+.cell {
+  height: 90px;
+  padding: 5px;
+  position: relative;
+  overflow-y: auto;
+}
+.course-block {
+  background-color: #ecf5ff;
+  border-left: 3px solid #409EFF;
+  padding: 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.course-block:hover {
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  transform: translateY(-1px);
+}
+.course-name {
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.course-room {
+  color: #909399;
+  font-size: 11px;
+}
 
 @media screen and (max-width: 768px) {
   .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }

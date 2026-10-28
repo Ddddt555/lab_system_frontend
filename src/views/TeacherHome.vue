@@ -26,9 +26,10 @@
               <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
                 <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
               </el-table-column>
-              <el-table-column label="操作" width="200" align="center">
+              <el-table-column label="操作" width="300" align="center">
                 <template #default="scope">
                   <el-button type="primary" size="small" @click="viewBookings(scope.row)">预约名单</el-button>
+                  <el-button type="warning" size="small" @click="openAttendance(scope.row)">发起签到</el-button>
                   <el-button type="success" size="small" @click="openReports(scope.row)">批阅报告</el-button>
                 </template>
               </el-table-column>
@@ -179,7 +180,6 @@
     <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newSession" label-width="80px">
         <el-form-item label="实验项目" required>
-          <!-- ⚠️ 下拉框绑定 allProjects -->
           <el-select v-model="newSession.projectNo" placeholder="请选择项目" style="width: 100%">
             <el-option v-for="p in allProjects" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
           </el-select>
@@ -244,6 +244,29 @@
       </template>
     </el-dialog>
 
+    <!-- ⚠️ 签到弹窗 (加了 @close 事件) -->
+    <el-dialog v-model="attendanceDialogVisible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <p style="color: #666; font-size: 15px; margin-bottom: 15px;">请学生打开学生端，输入以下 6 位数字进行签到</p>
+        <div style="font-size: 56px; font-weight: bold; color: #409EFF; letter-spacing: 12px; background: #ecf5ff; padding: 20px; border-radius: 8px; box-shadow: inset 0 0 10px #d9ecff;">
+          {{ attendanceCode || '------' }}
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-weight: bold; color: #303133;">已签到名单 ({{ attendanceList.length }}人)</span>
+        <el-button type="primary" size="small" @click="fetchAttendanceList">手动刷新</el-button>
+      </div>
+      <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px;">
+        <el-table :data="attendanceList" size="small" stripe>
+          <el-table-column prop="studentNo" label="学号" width="150" align="center" />
+          <el-table-column prop="name" label="姓名" align="center" />
+          <el-table-column label="签到时间" align="center">
+             <template #default="scope">{{ formatTime(scope.row.bookingTime) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
@@ -291,7 +314,7 @@ const totalScores = ref(0)
 const myClassOptions = ref([])
 const labOptions = ref([])
 const semesterOptions = ref([])
-const allProjects = ref([]) // ⚠️ 专门用于“安排实验场次”弹窗的项目下拉框
+const allProjects = ref([])
 
 const sessionPage = ref(1)
 const projectPage = ref(1)
@@ -324,6 +347,13 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
+// ⚠️ 签到相关变量
+const attendanceDialogVisible = ref(false)
+const attendanceCode = ref('')
+const attendanceList = ref([])
+const currentSessionNo = ref('')
+let ws = null // WebSocket 实例
+
 const scoreChartRef = ref(null)
 const rateChartRef = ref(null)
 let scoreChart = null
@@ -331,11 +361,12 @@ let rateChart = null
 
 onMounted(() => {
   fetchSessions(); fetchProjects(); fetchMyClasses(); fetchLabs(); fetchSemesters(); fetchNotices();
-  fetchAllProjectsForDropdown(); // ⚠️ 初始化时拉取一次全量项目
+  fetchAllProjectsForDropdown();
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
+  closeWebSocket() // ⚠️ 页面销毁时断开连接
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
@@ -388,7 +419,7 @@ const handleClassChange = () => { scorePage.value = 1; fetchCourseScores(); }
 // ========== 下拉框全量请求 ==========
 const fetchAllProjectsForDropdown = async () => {
   try {
-    const res = await request.get('/teacher/project/list'); // 不传分页参数，拿全量
+    const res = await request.get('/teacher/project/list');
     if (res.code === 200) allProjects.value = res.data;
   } catch (e) {}
 }
@@ -515,7 +546,7 @@ const submitAddProject = async () => {
       ElMessage.success(res.data); 
       projectDialog.value = false; 
       fetchProjects(); 
-      fetchAllProjectsForDropdown(); // 项目新增后，同步更新下拉框
+      fetchAllProjectsForDropdown();
     } else { ElMessage.error(res.msg) }
   } catch (e) { ElMessage.error('请求失败') }
 }
@@ -600,7 +631,70 @@ const submitPwd = async () => {
     ElMessage.error('网络错误，修改失败！')
   }
 }
-const logout = () => { localStorage.removeItem('loginUser'); localStorage.removeItem('token'); router.push('/') }
+
+const logout = async () => {
+  try {
+    await request.post('/logout')
+  } catch (e) {
+    // 忽略报错
+  } finally {
+    localStorage.removeItem('loginUser')
+    localStorage.removeItem('token')
+    router.push('/')
+  }
+}
+
+// ⚠️ 发起签到
+const openAttendance = async (session) => {
+  currentSessionNo.value = session.sessionNo
+  attendanceCode.value = '------' 
+  attendanceList.value = []
+  attendanceDialogVisible.value = true
+  
+  try {
+    const res = await request.post(`/teacher/attendance/start?sessionNo=${session.sessionNo}`)
+    if (res.code === 200) {
+      attendanceCode.value = res.data
+      fetchAttendanceList() 
+      connectWebSocket(session.sessionNo) // ⚠️ 建立长连接
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
+}
+
+// ⚠️ 建立 WebSocket 连接
+const connectWebSocket = (sessionNo) => {
+  closeWebSocket() 
+  const token = localStorage.getItem('token')
+  const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}/${token}`
+  ws = new WebSocket(wsUrl)
+  
+  ws.onmessage = (event) => {
+    if (event.data === 'NEW_SIGN_IN') {
+      fetchAttendanceList() 
+      ElMessage.success('有学生签到啦！')
+    }
+  }
+  ws.onerror = () => console.error('WebSocket 连接出错')
+}
+
+// ⚠️ 关闭连接
+const closeWebSocket = () => {
+  if (ws) {
+    ws.close()
+    ws = null
+  }
+}
+
+// ⚠️ 获取已签到名单
+const fetchAttendanceList = async () => {
+  if (!currentSessionNo.value) return
+  try {
+    const res = await request.get(`/teacher/attendance/list?sessionNo=${currentSessionNo.value}`)
+    if (res.code === 200) attendanceList.value = res.data
+  } catch (e) { console.error(e) }
+}
 </script>
 
 <style scoped>
