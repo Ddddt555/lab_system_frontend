@@ -130,7 +130,7 @@
           />
         </el-tab-pane>
 
-        <!-- ⚠️ 日历视图 -->
+        <!-- 日历视图 -->
         <el-tab-pane label="我的周课表" name="calendar">
           <div class="calendar-container" v-loading="calendarLoading">
             <div class="calendar-header">
@@ -190,7 +190,6 @@
               <template #default="scope">
                 <el-button type="success" size="small" @click="openUploadDialog(scope.row)">上传报告</el-button>
                 <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 5px;">版本历史</el-button>
-                <!-- ⚠️ 新增：签到按钮 -->
                 <el-button type="warning" size="small" @click="openSignDialog(scope.row)">签到</el-button>
                 <el-button v-if="!scope.row.isGraded" type="danger" size="small" @click="cancelBooking(scope.row.bookingNo)">取消预约</el-button>
                 <el-tag v-else type="info" effect="plain" style="margin-left:5px;">已批阅</el-tag>
@@ -217,7 +216,6 @@
                 </template>
                 <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
                 <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
-                <!-- ⚠️ 新增：移动端签到按钮 -->
                 <el-button type="warning" plain size="small" @click="openSignDialog(item)">签到</el-button>
                 <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
               </div>
@@ -293,7 +291,6 @@
       </template>
     </el-dialog>
 
-    <!-- ⚠️ 新增：学生端签到弹窗 -->
     <el-dialog v-model="signDialogVisible" title="课堂签到" :width="isMobile ? '90%' : '400px'" center>
       <div style="text-align: center; margin-bottom: 20px;">
         <p style="color: #666;">正在为 <strong style="color: #409EFF;">{{ signProjectName }}</strong> 签到</p>
@@ -332,6 +329,7 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { UploadFilled, Bell } from '@element-plus/icons-vue'
+import { WsClient } from '../utils/ws' // ⚠️ 引入全局WS
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -347,7 +345,6 @@ const availableClasses = ref([])
 const sessionList = ref([])
 const myBookingList = ref([])
 
-// ⚠️ 日历视图数据源
 const calendarEvents = ref([])
 const calendarLoading = ref(false)
 
@@ -383,18 +380,21 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-// ⚠️ 新增：签到相关变量
 const signDialogVisible = ref(false)
 const signProjectName = ref('')
 const signSessionNo = ref('')
 const signCode = ref('')
 const signing = ref(false)
 
+// ⚠️ 全局 WS 实例
+let globalWs = null
+
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   fetchSessions()
   fetchNotices()
   fetchAvailableClasses()
+  initGlobalWebSocket() // ⚠️ 建立全局WS
 })
 
 onUnmounted(() => {
@@ -402,7 +402,39 @@ onUnmounted(() => {
   if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
     window.URL.revokeObjectURL(previewFileUrl.value)
   }
+  if (globalWs) globalWs.close() // ⚠️ 关闭全局WS
 })
+
+// ⚠️ 初始化全局WS
+const initGlobalWebSocket = async () => {
+  try {
+    const res = await request.get('/ws-ticket')
+    if (res.code !== 200) return
+    const wsUrl = `ws://localhost:8080/ws/global?ticket=${res.data}`
+    
+    globalWs = new WsClient(wsUrl)
+    globalWs.onMessageCallback = (msg) => {
+      try {
+        const data = JSON.parse(msg)
+        
+        // 1. 收到新通知
+        if (data.type === 'NEW_NOTICE') {
+          fetchNotices() 
+          ElMessage({ type: 'warning', message: '您有一条新的未读通知！' })
+        }
+        
+        // 2. 收到余量变更
+        if (data.type === 'SEAT_UPDATE') {
+          const target = sessionList.value.find(s => s.sessionNo === data.sessionNo)
+          if (target) target.remainingSeats = data.seats
+        }
+      } catch (e) {}
+    }
+    globalWs.connect()
+  } catch (e) {
+    console.error('全局 WS 建立失败', e)
+  }
+}
 
 const handleTabChange = (name) => {
   if (name === 'my-bookings') fetchMyBookings()
@@ -411,7 +443,6 @@ const handleTabChange = (name) => {
   else if (name === 'calendar') fetchCalendarData()
 }
 
-// 分页事件
 const handleClassPageChange = (val) => { classPage.value = val; fetchAvailableClasses(); }
 const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
 const handleBookingPageChange = (val) => { bookingPage.value = val; fetchMyBookings(); }
@@ -436,7 +467,6 @@ const fetchSessions = async () => {
   }
 }
 
-// 获取全量预约记录用于渲染日历
 const fetchCalendarData = async () => {
   calendarLoading.value = true
   try {
@@ -451,7 +481,6 @@ const fetchCalendarData = async () => {
   }
 }
 
-// 筛选对应时间格的课程
 const getCoursesByTime = (period, day) => {
   return calendarEvents.value.filter(item => 
     item.period === period && item.dayOfWeek === day
@@ -631,13 +660,13 @@ const logout = async () => {
   } catch (e) {
     // 忽略网络错误
   } finally {
+    if (globalWs) globalWs.close() // ⚠️ 退出时关闭WS
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
     router.push('/')
   }
 }
 
-// ⚠️ 新增：打开签到弹窗
 const openSignDialog = (row) => {
   signSessionNo.value = row.sessionNo
   signProjectName.value = row.projectName
@@ -645,7 +674,6 @@ const openSignDialog = (row) => {
   signDialogVisible.value = true
 }
 
-// ⚠️ 新增：提交签到
 const submitSign = async () => {
   if (!signCode.value || signCode.value.length !== 6) return ElMessage.warning('请输入完整的 6 位签到码！')
   signing.value = true
@@ -679,7 +707,6 @@ const submitSign = async () => {
 .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ebeef5; flex-wrap: wrap; }
 .no-file { color: #909399; font-size: 14px; }
 
-/* ⚠️ 日历视图样式 */
 .calendar-container {
   border: 1px solid #ebeef5;
   border-radius: 4px;

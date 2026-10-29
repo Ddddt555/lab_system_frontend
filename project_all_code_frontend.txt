@@ -352,6 +352,33 @@ const handleLogin = async () => {
           />
         </el-tab-pane>
 
+        <!-- ⚠️ 日历视图 -->
+        <el-tab-pane label="我的周课表" name="calendar">
+          <div class="calendar-container" v-loading="calendarLoading">
+            <div class="calendar-header">
+              <div class="time-col">节次</div>
+              <div v-for="day in 7" :key="day" class="day-col">
+                {{ ['周一','周二','周三','周四','周五','周六','周日'][day-1] }}
+              </div>
+            </div>
+            <div class="calendar-body">
+              <div v-for="period in ['1-2节', '3-4节', '5-6节', '7-8节', '9-10节']" :key="period" class="calendar-row">
+                <div class="time-col">{{ period }}</div>
+                <div v-for="day in 7" :key="day" class="day-col cell">
+                  <div 
+                    v-for="course in getCoursesByTime(period, day)" 
+                    :key="course.sessionNo"
+                    class="course-block"
+                  >
+                    <div class="course-name">{{ course.projectName }}</div>
+                    <div class="course-room">{{ course.teacherName }} | 第{{ course.weekNum }}周</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
         <el-tab-pane label="我的预约记录" name="my-bookings">
           <el-table v-if="!isMobile" :data="myBookingList" border style="width: 100%" v-loading="bookingLoading">
             <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
@@ -381,12 +408,14 @@ const handleLogin = async () => {
                 <span v-else style="color: gray;">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="260" align="center">
+            <el-table-column label="操作" width="300" align="center">
               <template #default="scope">
                 <el-button type="success" size="small" @click="openUploadDialog(scope.row)">上传报告</el-button>
-                <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 10px;">版本历史</el-button>
+                <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 5px;">版本历史</el-button>
+                <!-- ⚠️ 新增：签到按钮 -->
+                <el-button type="warning" size="small" @click="openSignDialog(scope.row)">签到</el-button>
                 <el-button v-if="!scope.row.isGraded" type="danger" size="small" @click="cancelBooking(scope.row.bookingNo)">取消预约</el-button>
-                <el-tag v-else type="info" effect="plain">已批阅</el-tag>
+                <el-tag v-else type="info" effect="plain" style="margin-left:5px;">已批阅</el-tag>
               </template>
             </el-table-column>
           </el-table>
@@ -410,6 +439,8 @@ const handleLogin = async () => {
                 </template>
                 <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
                 <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
+                <!-- ⚠️ 新增：移动端签到按钮 -->
+                <el-button type="warning" plain size="small" @click="openSignDialog(item)">签到</el-button>
                 <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
               </div>
             </el-card>
@@ -484,6 +515,24 @@ const handleLogin = async () => {
       </template>
     </el-dialog>
 
+    <!-- ⚠️ 新增：学生端签到弹窗 -->
+    <el-dialog v-model="signDialogVisible" title="课堂签到" :width="isMobile ? '90%' : '400px'" center>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <p style="color: #666;">正在为 <strong style="color: #409EFF;">{{ signProjectName }}</strong> 签到</p>
+        <el-input 
+          v-model="signCode" 
+          placeholder="请输入老师提供的 6 位数字" 
+          size="large" 
+          maxlength="6" 
+          style="font-size: 28px; text-align: center; letter-spacing: 8px; margin-top: 15px;" 
+        />
+      </div>
+      <template #footer>
+        <el-button @click="signDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitSign" :loading="signing">确认签到</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="noticeDrawerVisible" title="我的通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
@@ -520,6 +569,10 @@ const availableClasses = ref([])
 const sessionList = ref([])
 const myBookingList = ref([])
 
+// ⚠️ 日历视图数据源
+const calendarEvents = ref([])
+const calendarLoading = ref(false)
+
 const loading = ref(false)
 const bookingLoading = ref(false)
 
@@ -552,6 +605,13 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
+// ⚠️ 新增：签到相关变量
+const signDialogVisible = ref(false)
+const signProjectName = ref('')
+const signSessionNo = ref('')
+const signCode = ref('')
+const signing = ref(false)
+
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   fetchSessions()
@@ -570,6 +630,7 @@ const handleTabChange = (name) => {
   if (name === 'my-bookings') fetchMyBookings()
   else if (name === 'all-sessions') fetchSessions()
   else if (name === 'select-class') fetchAvailableClasses()
+  else if (name === 'calendar') fetchCalendarData()
 }
 
 // 分页事件
@@ -595,6 +656,28 @@ const fetchSessions = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 获取全量预约记录用于渲染日历
+const fetchCalendarData = async () => {
+  calendarLoading.value = true
+  try {
+    const res = await request.get('/student/my-bookings')
+    if (res.code === 200) {
+      calendarEvents.value = res.data.records ? res.data.records : res.data
+    }
+  } catch (e) {
+    ElMessage.error('获取课表数据失败')
+  } finally {
+    calendarLoading.value = false
+  }
+}
+
+// 筛选对应时间格的课程
+const getCoursesByTime = (period, day) => {
+  return calendarEvents.value.filter(item => 
+    item.period === period && item.dayOfWeek === day
+  )
 }
 
 const fetchMyBookings = async () => {
@@ -764,10 +847,43 @@ const submitPwd = async () => {
   } catch (error) { ElMessage.error('网络错误，修改失败！') }
 }
 
-const logout = () => {
-  localStorage.removeItem('loginUser')
-  localStorage.removeItem('token')
-  router.push('/')
+const logout = async () => {
+  try {
+    await request.post('/logout')
+  } catch (e) {
+    // 忽略网络错误
+  } finally {
+    localStorage.removeItem('loginUser')
+    localStorage.removeItem('token')
+    router.push('/')
+  }
+}
+
+// ⚠️ 新增：打开签到弹窗
+const openSignDialog = (row) => {
+  signSessionNo.value = row.sessionNo
+  signProjectName.value = row.projectName
+  signCode.value = ''
+  signDialogVisible.value = true
+}
+
+// ⚠️ 新增：提交签到
+const submitSign = async () => {
+  if (!signCode.value || signCode.value.length !== 6) return ElMessage.warning('请输入完整的 6 位签到码！')
+  signing.value = true
+  try {
+    const res = await request.post(`/student/attendance/sign?sessionNo=${signSessionNo.value}&code=${signCode.value}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      signDialogVisible.value = false
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    ElMessage.error('签到失败，请检查网络')
+  } finally {
+    signing.value = false
+  }
 }
 </script>
 
@@ -784,6 +900,75 @@ const logout = () => {
 .card-body p { margin: 5px 0; font-size: 14px; color: #606266; line-height: 1.5; }
 .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ebeef5; flex-wrap: wrap; }
 .no-file { color: #909399; font-size: 14px; }
+
+/* ⚠️ 日历视图样式 */
+.calendar-container {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-top: 10px;
+}
+.calendar-header, .calendar-row {
+  display: flex;
+  min-width: 800px;
+}
+.calendar-header {
+  background-color: #f5f7fa;
+  font-weight: bold;
+}
+.time-col {
+  width: 100px;
+  text-align: center;
+  border-right: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fafafa;
+  font-size: 14px;
+  color: #606266;
+}
+.day-col {
+  flex: 1;
+  text-align: center;
+  border-right: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
+  padding: 10px 0;
+}
+.cell {
+  height: 90px;
+  padding: 5px;
+  position: relative;
+  overflow-y: auto;
+}
+.course-block {
+  background-color: #ecf5ff;
+  border-left: 3px solid #409EFF;
+  padding: 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.course-block:hover {
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  transform: translateY(-1px);
+}
+.course-name {
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.course-room {
+  color: #909399;
+  font-size: 11px;
+}
 
 @media screen and (max-width: 768px) {
   .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -824,9 +1009,10 @@ const logout = () => {
               <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
                 <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
               </el-table-column>
-              <el-table-column label="操作" width="200" align="center">
+              <el-table-column label="操作" width="300" align="center">
                 <template #default="scope">
                   <el-button type="primary" size="small" @click="viewBookings(scope.row)">预约名单</el-button>
+                  <el-button type="warning" size="small" @click="openAttendance(scope.row)">发起签到</el-button>
                   <el-button type="success" size="small" @click="openReports(scope.row)">批阅报告</el-button>
                 </template>
               </el-table-column>
@@ -977,7 +1163,6 @@ const logout = () => {
     <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newSession" label-width="80px">
         <el-form-item label="实验项目" required>
-          <!-- ⚠️ 下拉框绑定 allProjects -->
           <el-select v-model="newSession.projectNo" placeholder="请选择项目" style="width: 100%">
             <el-option v-for="p in allProjects" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
           </el-select>
@@ -1042,6 +1227,29 @@ const logout = () => {
       </template>
     </el-dialog>
 
+    <!-- ⚠️ 签到弹窗 (加了 @close 事件) -->
+    <el-dialog v-model="attendanceDialogVisible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <p style="color: #666; font-size: 15px; margin-bottom: 15px;">请学生打开学生端，输入以下 6 位数字进行签到</p>
+        <div style="font-size: 56px; font-weight: bold; color: #409EFF; letter-spacing: 12px; background: #ecf5ff; padding: 20px; border-radius: 8px; box-shadow: inset 0 0 10px #d9ecff;">
+          {{ attendanceCode || '------' }}
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-weight: bold; color: #303133;">已签到名单 ({{ attendanceList.length }}人)</span>
+        <el-button type="primary" size="small" @click="fetchAttendanceList">手动刷新</el-button>
+      </div>
+      <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px;">
+        <el-table :data="attendanceList" size="small" stripe>
+          <el-table-column prop="studentNo" label="学号" width="150" align="center" />
+          <el-table-column prop="name" label="姓名" align="center" />
+          <el-table-column label="签到时间" align="center">
+             <template #default="scope">{{ formatTime(scope.row.bookingTime) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
@@ -1089,7 +1297,7 @@ const totalScores = ref(0)
 const myClassOptions = ref([])
 const labOptions = ref([])
 const semesterOptions = ref([])
-const allProjects = ref([]) // ⚠️ 专门用于“安排实验场次”弹窗的项目下拉框
+const allProjects = ref([])
 
 const sessionPage = ref(1)
 const projectPage = ref(1)
@@ -1122,6 +1330,13 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
+// ⚠️ 签到相关变量
+const attendanceDialogVisible = ref(false)
+const attendanceCode = ref('')
+const attendanceList = ref([])
+const currentSessionNo = ref('')
+let ws = null // WebSocket 实例
+
 const scoreChartRef = ref(null)
 const rateChartRef = ref(null)
 let scoreChart = null
@@ -1129,11 +1344,12 @@ let rateChart = null
 
 onMounted(() => {
   fetchSessions(); fetchProjects(); fetchMyClasses(); fetchLabs(); fetchSemesters(); fetchNotices();
-  fetchAllProjectsForDropdown(); // ⚠️ 初始化时拉取一次全量项目
+  fetchAllProjectsForDropdown();
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
+  closeWebSocket() // ⚠️ 页面销毁时断开连接
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
@@ -1186,7 +1402,7 @@ const handleClassChange = () => { scorePage.value = 1; fetchCourseScores(); }
 // ========== 下拉框全量请求 ==========
 const fetchAllProjectsForDropdown = async () => {
   try {
-    const res = await request.get('/teacher/project/list'); // 不传分页参数，拿全量
+    const res = await request.get('/teacher/project/list');
     if (res.code === 200) allProjects.value = res.data;
   } catch (e) {}
 }
@@ -1313,7 +1529,7 @@ const submitAddProject = async () => {
       ElMessage.success(res.data); 
       projectDialog.value = false; 
       fetchProjects(); 
-      fetchAllProjectsForDropdown(); // 项目新增后，同步更新下拉框
+      fetchAllProjectsForDropdown();
     } else { ElMessage.error(res.msg) }
   } catch (e) { ElMessage.error('请求失败') }
 }
@@ -1398,7 +1614,70 @@ const submitPwd = async () => {
     ElMessage.error('网络错误，修改失败！')
   }
 }
-const logout = () => { localStorage.removeItem('loginUser'); localStorage.removeItem('token'); router.push('/') }
+
+const logout = async () => {
+  try {
+    await request.post('/logout')
+  } catch (e) {
+    // 忽略报错
+  } finally {
+    localStorage.removeItem('loginUser')
+    localStorage.removeItem('token')
+    router.push('/')
+  }
+}
+
+// ⚠️ 发起签到
+const openAttendance = async (session) => {
+  currentSessionNo.value = session.sessionNo
+  attendanceCode.value = '------' 
+  attendanceList.value = []
+  attendanceDialogVisible.value = true
+  
+  try {
+    const res = await request.post(`/teacher/attendance/start?sessionNo=${session.sessionNo}`)
+    if (res.code === 200) {
+      attendanceCode.value = res.data
+      fetchAttendanceList() 
+      connectWebSocket(session.sessionNo) // ⚠️ 建立长连接
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
+}
+
+// ⚠️ 建立 WebSocket 连接
+const connectWebSocket = (sessionNo) => {
+  closeWebSocket() 
+  const token = localStorage.getItem('token')
+  const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}/${token}`
+  ws = new WebSocket(wsUrl)
+  
+  ws.onmessage = (event) => {
+    if (event.data === 'NEW_SIGN_IN') {
+      fetchAttendanceList() 
+      ElMessage.success('有学生签到啦！')
+    }
+  }
+  ws.onerror = () => console.error('WebSocket 连接出错')
+}
+
+// ⚠️ 关闭连接
+const closeWebSocket = () => {
+  if (ws) {
+    ws.close()
+    ws = null
+  }
+}
+
+// ⚠️ 获取已签到名单
+const fetchAttendanceList = async () => {
+  if (!currentSessionNo.value) return
+  try {
+    const res = await request.get(`/teacher/attendance/list?sessionNo=${currentSessionNo.value}`)
+    if (res.code === 200) attendanceList.value = res.data
+  } catch (e) { console.error(e) }
+}
 </script>
 
 <style scoped>

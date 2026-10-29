@@ -26,11 +26,12 @@
               <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
                 <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
               </el-table-column>
-              <el-table-column label="操作" width="300" align="center">
+              <el-table-column label="操作" width="380" align="center">
                 <template #default="scope">
                   <el-button type="primary" size="small" @click="viewBookings(scope.row)">预约名单</el-button>
                   <el-button type="warning" size="small" @click="openAttendance(scope.row)">发起签到</el-button>
                   <el-button type="success" size="small" @click="openReports(scope.row)">批阅报告</el-button>
+                  <el-button type="info" size="small" @click="exportAttendance(scope.row.sessionNo)">导出考勤</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -244,7 +245,7 @@
       </template>
     </el-dialog>
 
-    <!-- ⚠️ 签到弹窗 (加了 @close 事件) -->
+    <!-- 签到弹窗 -->
     <el-dialog v-model="attendanceDialogVisible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
       <div style="text-align: center; margin-bottom: 20px;">
         <p style="color: #666; font-size: 15px; margin-bottom: 15px;">请学生打开学生端，输入以下 6 位数字进行签到</p>
@@ -289,6 +290,8 @@ import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { Bell } from '@element-plus/icons-vue'
+// ⚠️ 引入封装好的 WS 客户端
+import { WsClient } from '../utils/ws'
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -347,12 +350,13 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-// ⚠️ 签到相关变量
+// 签到相关变量
 const attendanceDialogVisible = ref(false)
 const attendanceCode = ref('')
 const attendanceList = ref([])
 const currentSessionNo = ref('')
-let ws = null // WebSocket 实例
+// ⚠️ 替换为 WsClient 实例
+let wsClient = null 
 
 const scoreChartRef = ref(null)
 const rateChartRef = ref(null)
@@ -366,7 +370,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  closeWebSocket() // ⚠️ 页面销毁时断开连接
+  closeWebSocket() // 页面销毁时断开连接
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
@@ -521,6 +525,27 @@ const exportScores = () => {
   })
 }
 
+// ⚠️ 新增：导出考勤表
+const exportAttendance = (sessionNo) => {
+  request.get(`/teacher/attendance/export?sessionNo=${sessionNo}`, {
+    responseType: 'blob'
+  }).then(res => {
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `考勤表_${sessionNo}_${new Date().getTime()}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('考勤表导出成功！')
+  }).catch(e => {
+    console.error(e)
+    ElMessage.error('导出失败，请检查网络或联系管理员')
+  })
+}
+
 const handleLabChange = (roomNo) => { const lab = labOptions.value.find(r => r.roomNo === roomNo); if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity } }
 const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}` }
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
@@ -638,13 +663,14 @@ const logout = async () => {
   } catch (e) {
     // 忽略报错
   } finally {
+    closeWebSocket() // 退出时一定要关掉长连接，否则服务端会一直留着死连接
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
     router.push('/')
   }
 }
 
-// ⚠️ 发起签到
+// 发起签到
 const openAttendance = async (session) => {
   currentSessionNo.value = session.sessionNo
   attendanceCode.value = '------' 
@@ -656,38 +682,54 @@ const openAttendance = async (session) => {
     if (res.code === 200) {
       attendanceCode.value = res.data
       fetchAttendanceList() 
-      connectWebSocket(session.sessionNo) // ⚠️ 建立长连接
+      // ⚠️ 改为先获取 Ticket，再连接
+      await initWebSocket(session.sessionNo)
     } else {
       ElMessage.error(res.msg)
     }
   } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
 }
 
-// ⚠️ 建立 WebSocket 连接
-const connectWebSocket = (sessionNo) => {
-  closeWebSocket() 
-  const token = localStorage.getItem('token')
-  const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}/${token}`
-  ws = new WebSocket(wsUrl)
+// ⚠️ 新的连接建立逻辑
+const initWebSocket = async (sessionNo) => {
+  closeWebSocket() // 先关掉可能存在的旧连接
   
-  ws.onmessage = (event) => {
-    if (event.data === 'NEW_SIGN_IN') {
-      fetchAttendanceList() 
-      ElMessage.success('有学生签到啦！')
+  try {
+    // 1. 向后端申请 Ticket
+    const res = await request.get('/ws-ticket')
+    if (res.code !== 200) return ElMessage.error('获取WS连接凭证失败')
+
+    const ticket = res.data
+    // 2. 带着 Ticket 建立连接
+    const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}?ticket=${ticket}`
+    
+    wsClient = new WsClient(wsUrl)
+    
+    // 3. 设置收到消息的回调
+    wsClient.onMessageCallback = (message) => {
+      if (message === 'NEW_SIGN_IN') {
+        fetchAttendanceList()
+        ElMessage.success('有学生签到啦！')
+      }
     }
+    
+    // 4. 启动连接
+    wsClient.connect()
+    
+  } catch (e) {
+    console.error('WebSocket 初始化失败', e)
   }
-  ws.onerror = () => console.error('WebSocket 连接出错')
 }
 
-// ⚠️ 关闭连接
+// 修改关闭连接的方法
 const closeWebSocket = () => {
-  if (ws) {
-    ws.close()
-    ws = null
+  if (wsClient) {
+    wsClient.close()
+    wsClient = null
   }
 }
 
-// ⚠️ 获取已签到名单
+// 获取已签到名单
 const fetchAttendanceList = async () => {
   if (!currentSessionNo.value) return
   try {

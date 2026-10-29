@@ -223,7 +223,6 @@
         <el-form-item label="姓名" required><el-input v-model="newStudent.name" /></el-form-item>
         <el-form-item label="初始密码"><el-input v-model="newStudent.password" type="password" show-password placeholder="不填默认123456" /></el-form-item>
         <el-form-item label="所属班级">
-          <!-- ⚠️ 下拉框绑全量数据 allAdminClasses -->
           <el-select v-model="newStudent.adminClassNo" placeholder="请选择行政班" style="width: 100%" clearable>
             <el-option v-for="c in allAdminClasses" :key="c.adminClassNo" :label="c.adminClassName" :value="c.adminClassNo" />
           </el-select>
@@ -279,7 +278,6 @@
     <el-dialog v-model="adminClassDialog" title="新增行政班" :width="isMobile ? '95%' : '400px'">
       <el-form :model="newAdminClass" label-width="80px">
         <el-form-item label="所属专业" required>
-          <!-- ⚠️ 下拉框绑全量数据 allMajors -->
           <el-select v-model="newAdminClass.majorNo" placeholder="请选择专业" style="width: 100%">
             <el-option v-for="m in allMajors" :key="m.majorNo" :label="m.majorName" :value="m.majorNo" />
           </el-select>
@@ -355,13 +353,11 @@
     <el-dialog v-model="teachClassDialog" title="新增教学班" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newTeachClass" label-width="100px">
         <el-form-item label="所属课程" required>
-          <!-- ⚠️ 下拉框绑全量数据 allCourses -->
           <el-select v-model="newTeachClass.courseNo" placeholder="请选择课程" style="width: 100%">
             <el-option v-for="c in allCourses" :key="c.courseNo" :label="c.courseNo + ' - ' + c.courseName" :value="c.courseNo" />
           </el-select>
         </el-form-item>
         <el-form-item label="任课教师" required>
-          <!-- ⚠️ 下拉框绑全量数据 allTeachers -->
           <el-select v-model="newTeachClass.workNo" placeholder="请选择教师" style="width: 100%">
             <el-option v-for="t in allTeachers" :key="t.workNo" :label="t.workNo + ' - ' + t.name" :value="t.workNo" />
           </el-select>
@@ -416,6 +412,7 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
+import { WsClient } from '../utils/ws' // ⚠️ 引入全局WS
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -511,6 +508,9 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
+// ⚠️ 全局 WS 实例
+let globalWs = null
+
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 
 const currentLabEquipList = computed(() => {
@@ -527,11 +527,37 @@ onMounted(() => {
   // 初始化下拉框数据和不需要分页的数据
   fetchDepts(); fetchTitles(); fetchNotices();
   fetchAllDropdownData();
+
+  initGlobalWebSocket() // ⚠️ 建立全局WS
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  if (globalWs) globalWs.close() // ⚠️ 关闭全局WS
 })
+
+// ⚠️ 初始化全局WS
+const initGlobalWebSocket = async () => {
+  try {
+    const res = await request.get('/ws-ticket')
+    if (res.code !== 200) return
+    const wsUrl = `ws://localhost:8080/ws/global?ticket=${res.data}`
+    
+    globalWs = new WsClient(wsUrl)
+    globalWs.onMessageCallback = (msg) => {
+      try {
+        const data = JSON.parse(msg)
+        if (data.type === 'NEW_NOTICE') {
+          fetchNotices() 
+          ElMessage({ type: 'warning', message: '收到一条新系统通知！' })
+        }
+      } catch (e) {}
+    }
+    globalWs.connect()
+  } catch (e) {
+    console.error('全局 WS 建立失败', e)
+  }
+}
 
 // ========== 分页请求方法 ==========
 const fetchStudents = async () => { 
@@ -853,6 +879,7 @@ const submitPwd = async () => {
 }
 
 const logout = () => { 
+  if (globalWs) globalWs.close() // ⚠️ 退出时关闭WS
   localStorage.removeItem('loginUser'); 
   localStorage.removeItem('token'); 
   router.push('/') 
