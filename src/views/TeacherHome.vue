@@ -492,7 +492,7 @@ const fetchSemesters = async () => {
 
 const fetchNotices = async () => {
   try {
-    const res = await request.get('/notice/list?role=teacher')
+    const res = await request.get('/notice/list')
     if (res.code === 200) {
       noticeList.value = res.data
       if (noticeList.value.length > 0) {

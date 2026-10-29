@@ -646,7 +646,7 @@ const downloadFile = async (fileName) => {
 
 const fetchNotices = async () => {
   try {
-    const res = await request.get('/notice/list?role=student')
+    const res = await request.get('/notice/list')
     if (res.code === 200) {
       noticeList.value = res.data
       if (noticeList.value.length > 0) {
