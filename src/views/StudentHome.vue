@@ -89,7 +89,9 @@
             </el-table-column>
             <el-table-column label="操作" width="120" align="center">
               <template #default="scope">
-                <el-button type="primary" size="small" :disabled="scope.row.remainingSeats <= 0" @click="handleBook(scope.row.sessionNo)">预约</el-button>
+                <!-- ⚠️ 改动：根据余量动态切换按钮 -->
+                <el-button v-if="scope.row.remainingSeats > 0" type="primary" size="small" @click="handleBook(scope.row.sessionNo)">预约</el-button>
+                <el-button v-else type="warning" plain size="small" @click="handleWaitlist(scope.row.sessionNo)">加入候补</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -113,7 +115,9 @@
                   <el-button type="success" plain size="small" @click="downloadFile(item.guideFile)">下载</el-button>
                 </template>
                 <span v-else class="no-file">暂无指导书</span>
-                <el-button type="primary" size="small" :disabled="item.remainingSeats <= 0" @click="handleBook(item.sessionNo)">预约</el-button>
+                <!-- ⚠️ 改动：根据余量动态切换按钮 -->
+                <el-button v-if="item.remainingSeats > 0" type="primary" size="small" @click="handleBook(item.sessionNo)">预约</el-button>
+                <el-button v-else type="warning" plain size="small" @click="handleWaitlist(item.sessionNo)">加入候补</el-button>
               </div>
             </el-card>
           </div>
@@ -428,6 +432,18 @@ const initGlobalWebSocket = async () => {
           const target = sessionList.value.find(s => s.sessionNo === data.sessionNo)
           if (target) target.remainingSeats = data.seats
         }
+
+        // ⚠️ 3. 收到候补成功通知
+        if (data.type === 'WAITLIST_SUCCESS') {
+          ElMessage({ 
+            type: 'success', 
+            message: data.message || '恭喜！您的候补已成功，系统已为您自动预约！',
+            duration: 5000,
+            showClose: true
+          })
+          fetchSessions() 
+          fetchMyBookings()
+        }
       } catch (e) {}
     }
     globalWs.connect()
@@ -537,6 +553,21 @@ const handleBook = async (sessionNo) => {
     if (res.code === 200) { ElMessage.success('预约成功！'); fetchSessions() }
     else { ElMessage.warning(res.msg) }
   } catch (error) { ElMessage.error('预约失败！') }
+}
+
+// ⚠️ 新增：加入候补队列
+const handleWaitlist = async (sessionNo) => {
+  try {
+    const res = await request.post(`/student/waitlist?sessionNo=${sessionNo}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      fetchSessions()
+    } else {
+      ElMessage.warning(res.msg)
+    }
+  } catch (error) {
+    ElMessage.error('加入候补失败，请检查网络！')
+  }
 }
 
 const cancelBooking = async (bookingNo) => {

@@ -23,6 +23,8 @@
             <el-upload action="#" :show-file-list="false" :auto-upload="false" :on-change="handleImportExcel" style="display: inline-block;">
               <el-button type="warning">批量导入学生</el-button>
             </el-upload>
+            <!-- ⚠️ 新增：学生回收站按钮 -->
+            <el-button type="info" @click="openRecycleDialog">学生回收站</el-button>
           </div>
           <div class="table-responsive">
             <el-table :data="studentList" border style="width: 100%" v-loading="loading">
@@ -43,7 +45,11 @@
 
         <!-- 2. 教师管理 -->
         <el-tab-pane label="教师管理" name="teachers">
-          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddTeacher">新增教师</el-button></div>
+          <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <el-button type="primary" @click="openAddTeacher">新增教师</el-button>
+            <!-- ⚠️ 新增：教师回收站按钮 -->
+            <el-button type="info" @click="openTeacherRecycleDialog">教师回收站</el-button>
+          </div>
           <div class="table-responsive">
             <el-table :data="teacherList" border style="width: 100%" v-loading="loading">
               <el-table-column prop="workNo" label="工号" width="150" align="center" />
@@ -403,6 +409,36 @@
         </el-timeline-item>
       </el-timeline>
     </el-drawer>
+
+    <!-- ⚠️ 学生回收站弹窗 -->
+    <el-dialog v-model="recycleDialogVisible" title="学生回收站" :width="isMobile ? '95%' : '700px'">
+      <el-empty v-if="deletedStudentList.length === 0" description="回收站为空，没有已删除的学生" />
+      <el-table v-else :data="deletedStudentList" border style="width: 100%">
+        <el-table-column prop="studentNo" label="学号" width="150" align="center" />
+        <el-table-column prop="name" label="姓名" width="120" align="center" />
+        <el-table-column prop="adminClassNo" label="行政班号" min-width="150" align="center" />
+        <el-table-column label="操作" width="120" align="center">
+          <template #default="scope">
+            <el-button type="success" size="small" @click="restoreStudent(scope.row.studentNo)">恢复</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- ⚠️ 教师回收站弹窗 -->
+    <el-dialog v-model="teacherRecycleDialogVisible" title="教师回收站" :width="isMobile ? '95%' : '700px'">
+      <el-empty v-if="deletedTeacherList.length === 0" description="回收站为空，没有已删除的教师" />
+      <el-table v-else :data="deletedTeacherList" border style="width: 100%">
+        <el-table-column prop="workNo" label="工号" width="150" align="center" />
+        <el-table-column prop="name" label="姓名" width="120" align="center" />
+        <el-table-column prop="deptNo" label="院系号" min-width="150" align="center" />
+        <el-table-column label="操作" width="120" align="center">
+          <template #default="scope">
+            <el-button type="success" size="small" @click="restoreTeacher(scope.row.workNo)">恢复</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -412,7 +448,7 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
-import { WsClient } from '../utils/ws' // ⚠️ 引入全局WS
+import { WsClient } from '../utils/ws'
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -467,8 +503,6 @@ const majorPage = ref(1)
 const adminClassPage = ref(1)
 const pageSize = ref(10)
 
-// (删除了所有的 paginatedXxx computed)
-
 const studentDialog = ref(false)
 const newStudent = ref({ name: '', password: '', adminClassNo: '' })
 
@@ -510,6 +544,14 @@ const hasUnread = ref(false)
 
 // ⚠️ 全局 WS 实例
 let globalWs = null
+
+// ⚠️ 回收站相关变量
+const recycleDialogVisible = ref(false)
+const deletedStudentList = ref([])
+
+// ⚠️ 教师回收站相关变量
+const teacherRecycleDialogVisible = ref(false)
+const deletedTeacherList = ref([])
 
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 
@@ -731,6 +773,73 @@ const handleImportExcel = async (file) => {
     }
   } catch (e) {
     ElMessage.error('导入失败，请检查文件格式！')
+  }
+}
+
+// ⚠️ 打开学生回收站
+const openRecycleDialog = async () => {
+  recycleDialogVisible.value = true
+  fetchDeletedStudents()
+}
+
+// ⚠️ 获取已删除学生列表
+const fetchDeletedStudents = async () => {
+  try {
+    const res = await request.get('/admin/student/recycle')
+    if (res.code === 200) {
+      deletedStudentList.value = res.data
+    }
+  } catch (e) {
+    ElMessage.error('获取回收站数据失败')
+  }
+}
+
+// ⚠️ 恢复学生
+const restoreStudent = async (studentNo) => {
+  try {
+    const res = await request.post(`/admin/student/restore?studentNo=${studentNo}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      fetchDeletedStudents() // 刷新回收站列表
+      fetchStudents() // 刷新外面正常的学生列表
+      fetchLogs() // 刷新日志
+    }
+  } catch (e) {
+    ElMessage.error('恢复失败')
+  }
+}
+
+// ⚠️ 打开教师回收站
+const openTeacherRecycleDialog = async () => {
+  teacherRecycleDialogVisible.value = true
+  fetchDeletedTeachers()
+}
+
+// ⚠️ 获取已删除教师列表
+const fetchDeletedTeachers = async () => {
+  try {
+    const res = await request.get('/admin/teacher/recycle')
+    if (res.code === 200) {
+      deletedTeacherList.value = res.data
+    }
+  } catch (e) {
+    ElMessage.error('获取教师回收站数据失败')
+  }
+}
+
+// ⚠️ 恢复教师
+const restoreTeacher = async (workNo) => {
+  try {
+    const res = await request.post(`/admin/teacher/restore?workNo=${workNo}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      fetchDeletedTeachers() // 刷新回收站列表
+      fetchTeachers() // 刷新外面正常的教师列表
+      fetchAllDropdownData() // 刷新下拉框，因为老师可能被选了
+      fetchLogs() // 刷新日志
+    }
+  } catch (e) {
+    ElMessage.error('恢复失败')
   }
 }
 

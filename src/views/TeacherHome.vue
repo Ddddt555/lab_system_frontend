@@ -85,16 +85,17 @@
             <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="handleClassChange">
               <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
             </el-select>
+            <el-button type="warning" v-if="selectedClassNo" @click="openWeightDialog">权重设置</el-button>
             <el-button type="success" v-if="selectedClassNo" @click="exportScores">导出成绩单</el-button>
           </div>
           <div class="table-responsive">
             <el-table :data="scoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
               <el-table-column prop="studentNo" label="学号" width="150" align="center" />
               <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
-              <el-table-column label="平时成绩 (30%)" width="150" align="center">
+              <el-table-column :label="`平时成绩 (${currentDailyWeight}%)`" width="150" align="center">
                 <template #default="scope"><el-input-number v-model="scope.row.score" :min="0" :max="100" size="small" /></template>
               </el-table-column>
-              <el-table-column label="报告均分 (70%)" width="120" align="center">
+              <el-table-column :label="`报告均分 (${currentReportWeight}%)`" width="120" align="center">
                 <template #default="scope"><span style="color: #409EFF; font-weight: bold;">{{ scope.row.reportScore }}</span></template>
               </el-table-column>
               <el-table-column label="总评成绩" width="120" align="center">
@@ -268,6 +269,25 @@
       </div>
     </el-dialog>
 
+    <!-- 权重设置弹窗 -->
+    <el-dialog v-model="weightDialogVisible" title="成绩权重设置" :width="isMobile ? '90%' : '400px'" center>
+      <el-form label-width="100px">
+        <el-form-item label="平时成绩占比">
+          <el-input-number v-model="weightForm.dailyWeight" :min="0" :max="100" />
+          <span style="margin-left: 10px;">%</span>
+        </el-form-item>
+        <el-form-item label="报告成绩占比">
+          <el-input-number v-model="weightForm.reportWeight" :min="0" :max="100" />
+          <span style="margin-left: 10px;">%</span>
+        </el-form-item>
+        <el-alert title="注意：修改权重后，系统会自动重算该班级所有已录入成绩的学生总评！" type="warning" :closable="false" show-icon />
+      </el-form>
+      <template #footer>
+        <el-button @click="weightDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitWeight">保存并重算</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
@@ -290,7 +310,6 @@ import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { Bell } from '@element-plus/icons-vue'
-// ⚠️ 引入封装好的 WS 客户端
 import { WsClient } from '../utils/ws'
 
 const router = useRouter()
@@ -355,8 +374,13 @@ const attendanceDialogVisible = ref(false)
 const attendanceCode = ref('')
 const attendanceList = ref([])
 const currentSessionNo = ref('')
-// ⚠️ 替换为 WsClient 实例
 let wsClient = null 
+
+// ⚠️ 权重设置相关变量
+const weightDialogVisible = ref(false)
+const weightForm = ref({ dailyWeight: 30, reportWeight: 70 })
+const currentDailyWeight = ref(30)
+const currentReportWeight = ref(70)
 
 const scoreChartRef = ref(null)
 const rateChartRef = ref(null)
@@ -370,7 +394,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  closeWebSocket() // 页面销毁时断开连接
+  closeWebSocket() 
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
@@ -418,7 +442,20 @@ const fetchCourseScores = async () => {
 const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
 const handleProjectPageChange = (val) => { projectPage.value = val; fetchProjects(); }
 const handleScorePageChange = (val) => { scorePage.value = val; fetchCourseScores(); }
-const handleClassChange = () => { scorePage.value = 1; fetchCourseScores(); }
+
+// ⚠️ 选课下拉框切换时，同步更新权重变量
+const handleClassChange = () => { 
+  scorePage.value = 1; 
+  const targetClass = myClassOptions.value.find(c => c.classNo === selectedClassNo.value);
+  if (targetClass) {
+    currentDailyWeight.value = targetClass.dailyWeight || 30;
+    currentReportWeight.value = targetClass.reportWeight || 70;
+  } else {
+    currentDailyWeight.value = 30;
+    currentReportWeight.value = 70;
+  }
+  fetchCourseScores(); 
+}
 
 // ========== 下拉框全量请求 ==========
 const fetchAllProjectsForDropdown = async () => {
@@ -428,7 +465,20 @@ const fetchAllProjectsForDropdown = async () => {
   } catch (e) {}
 }
 
-const fetchMyClasses = async () => { try { const res = await request.get('/teacher/my-classes'); if (res.code === 200) myClassOptions.value = res.data } catch (e) {} }
+const fetchMyClasses = async () => { 
+  try { 
+    const res = await request.get('/teacher/my-classes'); 
+    if (res.code === 200) {
+      // ⚠️ 这里假设后端返回了 dailyWeight 和 reportWeight
+      myClassOptions.value = res.data.map(item => ({
+        ...item,
+        dailyWeight: item.dailyWeight || 30,
+        reportWeight: item.reportWeight || 70
+      }))
+    } 
+  } catch (e) {} 
+}
+
 const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
 const fetchSemesters = async () => {
   try {
@@ -523,6 +573,41 @@ const exportScores = () => {
     console.error(e)
     ElMessage.error('导出失败，请检查后端服务')
   })
+}
+
+// ⚠️ 权重设置相关方法
+const openWeightDialog = () => {
+  weightForm.value = { 
+    dailyWeight: currentDailyWeight.value, 
+    reportWeight: currentReportWeight.value 
+  }
+  weightDialogVisible.value = true
+}
+
+const submitWeight = async () => {
+  if (weightForm.value.dailyWeight + weightForm.value.reportWeight !== 100) {
+    return ElMessage.warning('平时成绩和报告成绩的占比之和必须等于 100%！')
+  }
+  try {
+    const res = await request.post('/teacher/score/weight', null, {
+      params: {
+        classNo: selectedClassNo.value,
+        dailyWeight: weightForm.value.dailyWeight,
+        reportWeight: weightForm.value.reportWeight
+      }
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      weightDialogVisible.value = false
+      currentDailyWeight.value = weightForm.value.dailyWeight
+      currentReportWeight.value = weightForm.value.reportWeight
+      fetchCourseScores() // 刷新列表
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    ElMessage.error('网络错误')
+  }
 }
 
 // ⚠️ 新增：导出考勤表
@@ -663,7 +748,7 @@ const logout = async () => {
   } catch (e) {
     // 忽略报错
   } finally {
-    closeWebSocket() // 退出时一定要关掉长连接，否则服务端会一直留着死连接
+    closeWebSocket() 
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
     router.push('/')
@@ -682,7 +767,6 @@ const openAttendance = async (session) => {
     if (res.code === 200) {
       attendanceCode.value = res.data
       fetchAttendanceList() 
-      // ⚠️ 改为先获取 Ticket，再连接
       await initWebSocket(session.sessionNo)
     } else {
       ElMessage.error(res.msg)
@@ -690,22 +774,18 @@ const openAttendance = async (session) => {
   } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
 }
 
-// ⚠️ 新的连接建立逻辑
 const initWebSocket = async (sessionNo) => {
-  closeWebSocket() // 先关掉可能存在的旧连接
+  closeWebSocket() 
   
   try {
-    // 1. 向后端申请 Ticket
     const res = await request.get('/ws-ticket')
     if (res.code !== 200) return ElMessage.error('获取WS连接凭证失败')
 
     const ticket = res.data
-    // 2. 带着 Ticket 建立连接
     const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}?ticket=${ticket}`
     
     wsClient = new WsClient(wsUrl)
     
-    // 3. 设置收到消息的回调
     wsClient.onMessageCallback = (message) => {
       if (message === 'NEW_SIGN_IN') {
         fetchAttendanceList()
@@ -713,7 +793,6 @@ const initWebSocket = async (sessionNo) => {
       }
     }
     
-    // 4. 启动连接
     wsClient.connect()
     
   } catch (e) {
@@ -721,7 +800,6 @@ const initWebSocket = async (sessionNo) => {
   }
 }
 
-// 修改关闭连接的方法
 const closeWebSocket = () => {
   if (wsClient) {
     wsClient.close()
@@ -729,7 +807,6 @@ const closeWebSocket = () => {
   }
 }
 
-// 获取已签到名单
 const fetchAttendanceList = async () => {
   if (!currentSessionNo.value) return
   try {

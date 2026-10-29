@@ -311,7 +311,9 @@ const handleLogin = async () => {
             </el-table-column>
             <el-table-column label="操作" width="120" align="center">
               <template #default="scope">
-                <el-button type="primary" size="small" :disabled="scope.row.remainingSeats <= 0" @click="handleBook(scope.row.sessionNo)">预约</el-button>
+                <!-- ⚠️ 改动：根据余量动态切换按钮 -->
+                <el-button v-if="scope.row.remainingSeats > 0" type="primary" size="small" @click="handleBook(scope.row.sessionNo)">预约</el-button>
+                <el-button v-else type="warning" plain size="small" @click="handleWaitlist(scope.row.sessionNo)">加入候补</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -335,7 +337,9 @@ const handleLogin = async () => {
                   <el-button type="success" plain size="small" @click="downloadFile(item.guideFile)">下载</el-button>
                 </template>
                 <span v-else class="no-file">暂无指导书</span>
-                <el-button type="primary" size="small" :disabled="item.remainingSeats <= 0" @click="handleBook(item.sessionNo)">预约</el-button>
+                <!-- ⚠️ 改动：根据余量动态切换按钮 -->
+                <el-button v-if="item.remainingSeats > 0" type="primary" size="small" @click="handleBook(item.sessionNo)">预约</el-button>
+                <el-button v-else type="warning" plain size="small" @click="handleWaitlist(item.sessionNo)">加入候补</el-button>
               </div>
             </el-card>
           </div>
@@ -352,7 +356,7 @@ const handleLogin = async () => {
           />
         </el-tab-pane>
 
-        <!-- ⚠️ 日历视图 -->
+        <!-- 日历视图 -->
         <el-tab-pane label="我的周课表" name="calendar">
           <div class="calendar-container" v-loading="calendarLoading">
             <div class="calendar-header">
@@ -412,7 +416,6 @@ const handleLogin = async () => {
               <template #default="scope">
                 <el-button type="success" size="small" @click="openUploadDialog(scope.row)">上传报告</el-button>
                 <el-button type="primary" link @click="openHistory(scope.row)" style="margin: 0 5px;">版本历史</el-button>
-                <!-- ⚠️ 新增：签到按钮 -->
                 <el-button type="warning" size="small" @click="openSignDialog(scope.row)">签到</el-button>
                 <el-button v-if="!scope.row.isGraded" type="danger" size="small" @click="cancelBooking(scope.row.bookingNo)">取消预约</el-button>
                 <el-tag v-else type="info" effect="plain" style="margin-left:5px;">已批阅</el-tag>
@@ -439,7 +442,6 @@ const handleLogin = async () => {
                 </template>
                 <el-button type="success" size="small" @click="openUploadDialog(item)">上传报告</el-button>
                 <el-button type="primary" plain size="small" @click="openHistory(item)">版本历史</el-button>
-                <!-- ⚠️ 新增：移动端签到按钮 -->
                 <el-button type="warning" plain size="small" @click="openSignDialog(item)">签到</el-button>
                 <el-button v-if="!item.isGraded" type="danger" size="small" @click="cancelBooking(item.bookingNo)">取消预约</el-button>
               </div>
@@ -515,7 +517,6 @@ const handleLogin = async () => {
       </template>
     </el-dialog>
 
-    <!-- ⚠️ 新增：学生端签到弹窗 -->
     <el-dialog v-model="signDialogVisible" title="课堂签到" :width="isMobile ? '90%' : '400px'" center>
       <div style="text-align: center; margin-bottom: 20px;">
         <p style="color: #666;">正在为 <strong style="color: #409EFF;">{{ signProjectName }}</strong> 签到</p>
@@ -554,6 +555,7 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { UploadFilled, Bell } from '@element-plus/icons-vue'
+import { WsClient } from '../utils/ws' // ⚠️ 引入全局WS
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -569,7 +571,6 @@ const availableClasses = ref([])
 const sessionList = ref([])
 const myBookingList = ref([])
 
-// ⚠️ 日历视图数据源
 const calendarEvents = ref([])
 const calendarLoading = ref(false)
 
@@ -605,18 +606,21 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-// ⚠️ 新增：签到相关变量
 const signDialogVisible = ref(false)
 const signProjectName = ref('')
 const signSessionNo = ref('')
 const signCode = ref('')
 const signing = ref(false)
 
+// ⚠️ 全局 WS 实例
+let globalWs = null
+
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   fetchSessions()
   fetchNotices()
   fetchAvailableClasses()
+  initGlobalWebSocket() // ⚠️ 建立全局WS
 })
 
 onUnmounted(() => {
@@ -624,7 +628,51 @@ onUnmounted(() => {
   if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
     window.URL.revokeObjectURL(previewFileUrl.value)
   }
+  if (globalWs) globalWs.close() // ⚠️ 关闭全局WS
 })
+
+// ⚠️ 初始化全局WS
+const initGlobalWebSocket = async () => {
+  try {
+    const res = await request.get('/ws-ticket')
+    if (res.code !== 200) return
+    const wsUrl = `ws://localhost:8080/ws/global?ticket=${res.data}`
+    
+    globalWs = new WsClient(wsUrl)
+    globalWs.onMessageCallback = (msg) => {
+      try {
+        const data = JSON.parse(msg)
+        
+        // 1. 收到新通知
+        if (data.type === 'NEW_NOTICE') {
+          fetchNotices() 
+          ElMessage({ type: 'warning', message: '您有一条新的未读通知！' })
+        }
+        
+        // 2. 收到余量变更
+        if (data.type === 'SEAT_UPDATE') {
+          const target = sessionList.value.find(s => s.sessionNo === data.sessionNo)
+          if (target) target.remainingSeats = data.seats
+        }
+
+        // ⚠️ 3. 收到候补成功通知
+        if (data.type === 'WAITLIST_SUCCESS') {
+          ElMessage({ 
+            type: 'success', 
+            message: data.message || '恭喜！您的候补已成功，系统已为您自动预约！',
+            duration: 5000,
+            showClose: true
+          })
+          fetchSessions() 
+          fetchMyBookings()
+        }
+      } catch (e) {}
+    }
+    globalWs.connect()
+  } catch (e) {
+    console.error('全局 WS 建立失败', e)
+  }
+}
 
 const handleTabChange = (name) => {
   if (name === 'my-bookings') fetchMyBookings()
@@ -633,7 +681,6 @@ const handleTabChange = (name) => {
   else if (name === 'calendar') fetchCalendarData()
 }
 
-// 分页事件
 const handleClassPageChange = (val) => { classPage.value = val; fetchAvailableClasses(); }
 const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
 const handleBookingPageChange = (val) => { bookingPage.value = val; fetchMyBookings(); }
@@ -658,7 +705,6 @@ const fetchSessions = async () => {
   }
 }
 
-// 获取全量预约记录用于渲染日历
 const fetchCalendarData = async () => {
   calendarLoading.value = true
   try {
@@ -673,7 +719,6 @@ const fetchCalendarData = async () => {
   }
 }
 
-// 筛选对应时间格的课程
 const getCoursesByTime = (period, day) => {
   return calendarEvents.value.filter(item => 
     item.period === period && item.dayOfWeek === day
@@ -730,6 +775,21 @@ const handleBook = async (sessionNo) => {
     if (res.code === 200) { ElMessage.success('预约成功！'); fetchSessions() }
     else { ElMessage.warning(res.msg) }
   } catch (error) { ElMessage.error('预约失败！') }
+}
+
+// ⚠️ 新增：加入候补队列
+const handleWaitlist = async (sessionNo) => {
+  try {
+    const res = await request.post(`/student/waitlist?sessionNo=${sessionNo}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      fetchSessions()
+    } else {
+      ElMessage.warning(res.msg)
+    }
+  } catch (error) {
+    ElMessage.error('加入候补失败，请检查网络！')
+  }
 }
 
 const cancelBooking = async (bookingNo) => {
@@ -853,13 +913,13 @@ const logout = async () => {
   } catch (e) {
     // 忽略网络错误
   } finally {
+    if (globalWs) globalWs.close() // ⚠️ 退出时关闭WS
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
     router.push('/')
   }
 }
 
-// ⚠️ 新增：打开签到弹窗
 const openSignDialog = (row) => {
   signSessionNo.value = row.sessionNo
   signProjectName.value = row.projectName
@@ -867,7 +927,6 @@ const openSignDialog = (row) => {
   signDialogVisible.value = true
 }
 
-// ⚠️ 新增：提交签到
 const submitSign = async () => {
   if (!signCode.value || signCode.value.length !== 6) return ElMessage.warning('请输入完整的 6 位签到码！')
   signing.value = true
@@ -901,7 +960,6 @@ const submitSign = async () => {
 .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ebeef5; flex-wrap: wrap; }
 .no-file { color: #909399; font-size: 14px; }
 
-/* ⚠️ 日历视图样式 */
 .calendar-container {
   border: 1px solid #ebeef5;
   border-radius: 4px;
@@ -1009,11 +1067,12 @@ const submitSign = async () => {
               <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
                 <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
               </el-table-column>
-              <el-table-column label="操作" width="300" align="center">
+              <el-table-column label="操作" width="380" align="center">
                 <template #default="scope">
                   <el-button type="primary" size="small" @click="viewBookings(scope.row)">预约名单</el-button>
                   <el-button type="warning" size="small" @click="openAttendance(scope.row)">发起签到</el-button>
                   <el-button type="success" size="small" @click="openReports(scope.row)">批阅报告</el-button>
+                  <el-button type="info" size="small" @click="exportAttendance(scope.row.sessionNo)">导出考勤</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -1067,16 +1126,17 @@ const submitSign = async () => {
             <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="handleClassChange">
               <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
             </el-select>
+            <el-button type="warning" v-if="selectedClassNo" @click="openWeightDialog">权重设置</el-button>
             <el-button type="success" v-if="selectedClassNo" @click="exportScores">导出成绩单</el-button>
           </div>
           <div class="table-responsive">
             <el-table :data="scoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
               <el-table-column prop="studentNo" label="学号" width="150" align="center" />
               <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
-              <el-table-column label="平时成绩 (30%)" width="150" align="center">
+              <el-table-column :label="`平时成绩 (${currentDailyWeight}%)`" width="150" align="center">
                 <template #default="scope"><el-input-number v-model="scope.row.score" :min="0" :max="100" size="small" /></template>
               </el-table-column>
-              <el-table-column label="报告均分 (70%)" width="120" align="center">
+              <el-table-column :label="`报告均分 (${currentReportWeight}%)`" width="120" align="center">
                 <template #default="scope"><span style="color: #409EFF; font-weight: bold;">{{ scope.row.reportScore }}</span></template>
               </el-table-column>
               <el-table-column label="总评成绩" width="120" align="center">
@@ -1227,7 +1287,7 @@ const submitSign = async () => {
       </template>
     </el-dialog>
 
-    <!-- ⚠️ 签到弹窗 (加了 @close 事件) -->
+    <!-- 签到弹窗 -->
     <el-dialog v-model="attendanceDialogVisible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
       <div style="text-align: center; margin-bottom: 20px;">
         <p style="color: #666; font-size: 15px; margin-bottom: 15px;">请学生打开学生端，输入以下 6 位数字进行签到</p>
@@ -1248,6 +1308,25 @@ const submitSign = async () => {
           </el-table-column>
         </el-table>
       </div>
+    </el-dialog>
+
+    <!-- 权重设置弹窗 -->
+    <el-dialog v-model="weightDialogVisible" title="成绩权重设置" :width="isMobile ? '90%' : '400px'" center>
+      <el-form label-width="100px">
+        <el-form-item label="平时成绩占比">
+          <el-input-number v-model="weightForm.dailyWeight" :min="0" :max="100" />
+          <span style="margin-left: 10px;">%</span>
+        </el-form-item>
+        <el-form-item label="报告成绩占比">
+          <el-input-number v-model="weightForm.reportWeight" :min="0" :max="100" />
+          <span style="margin-left: 10px;">%</span>
+        </el-form-item>
+        <el-alert title="注意：修改权重后，系统会自动重算该班级所有已录入成绩的学生总评！" type="warning" :closable="false" show-icon />
+      </el-form>
+      <template #footer>
+        <el-button @click="weightDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitWeight">保存并重算</el-button>
+      </template>
     </el-dialog>
 
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
@@ -1272,6 +1351,7 @@ import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { Bell } from '@element-plus/icons-vue'
+import { WsClient } from '../utils/ws'
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -1330,12 +1410,18 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-// ⚠️ 签到相关变量
+// 签到相关变量
 const attendanceDialogVisible = ref(false)
 const attendanceCode = ref('')
 const attendanceList = ref([])
 const currentSessionNo = ref('')
-let ws = null // WebSocket 实例
+let wsClient = null 
+
+// ⚠️ 权重设置相关变量
+const weightDialogVisible = ref(false)
+const weightForm = ref({ dailyWeight: 30, reportWeight: 70 })
+const currentDailyWeight = ref(30)
+const currentReportWeight = ref(70)
 
 const scoreChartRef = ref(null)
 const rateChartRef = ref(null)
@@ -1349,7 +1435,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  closeWebSocket() // ⚠️ 页面销毁时断开连接
+  closeWebSocket() 
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
@@ -1397,7 +1483,20 @@ const fetchCourseScores = async () => {
 const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
 const handleProjectPageChange = (val) => { projectPage.value = val; fetchProjects(); }
 const handleScorePageChange = (val) => { scorePage.value = val; fetchCourseScores(); }
-const handleClassChange = () => { scorePage.value = 1; fetchCourseScores(); }
+
+// ⚠️ 选课下拉框切换时，同步更新权重变量
+const handleClassChange = () => { 
+  scorePage.value = 1; 
+  const targetClass = myClassOptions.value.find(c => c.classNo === selectedClassNo.value);
+  if (targetClass) {
+    currentDailyWeight.value = targetClass.dailyWeight || 30;
+    currentReportWeight.value = targetClass.reportWeight || 70;
+  } else {
+    currentDailyWeight.value = 30;
+    currentReportWeight.value = 70;
+  }
+  fetchCourseScores(); 
+}
 
 // ========== 下拉框全量请求 ==========
 const fetchAllProjectsForDropdown = async () => {
@@ -1407,7 +1506,20 @@ const fetchAllProjectsForDropdown = async () => {
   } catch (e) {}
 }
 
-const fetchMyClasses = async () => { try { const res = await request.get('/teacher/my-classes'); if (res.code === 200) myClassOptions.value = res.data } catch (e) {} }
+const fetchMyClasses = async () => { 
+  try { 
+    const res = await request.get('/teacher/my-classes'); 
+    if (res.code === 200) {
+      // ⚠️ 这里假设后端返回了 dailyWeight 和 reportWeight
+      myClassOptions.value = res.data.map(item => ({
+        ...item,
+        dailyWeight: item.dailyWeight || 30,
+        reportWeight: item.reportWeight || 70
+      }))
+    } 
+  } catch (e) {} 
+}
+
 const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
 const fetchSemesters = async () => {
   try {
@@ -1501,6 +1613,62 @@ const exportScores = () => {
   }).catch(e => {
     console.error(e)
     ElMessage.error('导出失败，请检查后端服务')
+  })
+}
+
+// ⚠️ 权重设置相关方法
+const openWeightDialog = () => {
+  weightForm.value = { 
+    dailyWeight: currentDailyWeight.value, 
+    reportWeight: currentReportWeight.value 
+  }
+  weightDialogVisible.value = true
+}
+
+const submitWeight = async () => {
+  if (weightForm.value.dailyWeight + weightForm.value.reportWeight !== 100) {
+    return ElMessage.warning('平时成绩和报告成绩的占比之和必须等于 100%！')
+  }
+  try {
+    const res = await request.post('/teacher/score/weight', null, {
+      params: {
+        classNo: selectedClassNo.value,
+        dailyWeight: weightForm.value.dailyWeight,
+        reportWeight: weightForm.value.reportWeight
+      }
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      weightDialogVisible.value = false
+      currentDailyWeight.value = weightForm.value.dailyWeight
+      currentReportWeight.value = weightForm.value.reportWeight
+      fetchCourseScores() // 刷新列表
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    ElMessage.error('网络错误')
+  }
+}
+
+// ⚠️ 新增：导出考勤表
+const exportAttendance = (sessionNo) => {
+  request.get(`/teacher/attendance/export?sessionNo=${sessionNo}`, {
+    responseType: 'blob'
+  }).then(res => {
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `考勤表_${sessionNo}_${new Date().getTime()}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('考勤表导出成功！')
+  }).catch(e => {
+    console.error(e)
+    ElMessage.error('导出失败，请检查网络或联系管理员')
   })
 }
 
@@ -1621,13 +1789,14 @@ const logout = async () => {
   } catch (e) {
     // 忽略报错
   } finally {
+    closeWebSocket() 
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
     router.push('/')
   }
 }
 
-// ⚠️ 发起签到
+// 发起签到
 const openAttendance = async (session) => {
   currentSessionNo.value = session.sessionNo
   attendanceCode.value = '------' 
@@ -1639,38 +1808,46 @@ const openAttendance = async (session) => {
     if (res.code === 200) {
       attendanceCode.value = res.data
       fetchAttendanceList() 
-      connectWebSocket(session.sessionNo) // ⚠️ 建立长连接
+      await initWebSocket(session.sessionNo)
     } else {
       ElMessage.error(res.msg)
     }
   } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
 }
 
-// ⚠️ 建立 WebSocket 连接
-const connectWebSocket = (sessionNo) => {
+const initWebSocket = async (sessionNo) => {
   closeWebSocket() 
-  const token = localStorage.getItem('token')
-  const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}/${token}`
-  ws = new WebSocket(wsUrl)
   
-  ws.onmessage = (event) => {
-    if (event.data === 'NEW_SIGN_IN') {
-      fetchAttendanceList() 
-      ElMessage.success('有学生签到啦！')
+  try {
+    const res = await request.get('/ws-ticket')
+    if (res.code !== 200) return ElMessage.error('获取WS连接凭证失败')
+
+    const ticket = res.data
+    const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}?ticket=${ticket}`
+    
+    wsClient = new WsClient(wsUrl)
+    
+    wsClient.onMessageCallback = (message) => {
+      if (message === 'NEW_SIGN_IN') {
+        fetchAttendanceList()
+        ElMessage.success('有学生签到啦！')
+      }
     }
+    
+    wsClient.connect()
+    
+  } catch (e) {
+    console.error('WebSocket 初始化失败', e)
   }
-  ws.onerror = () => console.error('WebSocket 连接出错')
 }
 
-// ⚠️ 关闭连接
 const closeWebSocket = () => {
-  if (ws) {
-    ws.close()
-    ws = null
+  if (wsClient) {
+    wsClient.close()
+    wsClient = null
   }
 }
 
-// ⚠️ 获取已签到名单
 const fetchAttendanceList = async () => {
   if (!currentSessionNo.value) return
   try {
@@ -1924,7 +2101,6 @@ const fetchAttendanceList = async () => {
         <el-form-item label="姓名" required><el-input v-model="newStudent.name" /></el-form-item>
         <el-form-item label="初始密码"><el-input v-model="newStudent.password" type="password" show-password placeholder="不填默认123456" /></el-form-item>
         <el-form-item label="所属班级">
-          <!-- ⚠️ 下拉框绑全量数据 allAdminClasses -->
           <el-select v-model="newStudent.adminClassNo" placeholder="请选择行政班" style="width: 100%" clearable>
             <el-option v-for="c in allAdminClasses" :key="c.adminClassNo" :label="c.adminClassName" :value="c.adminClassNo" />
           </el-select>
@@ -1980,7 +2156,6 @@ const fetchAttendanceList = async () => {
     <el-dialog v-model="adminClassDialog" title="新增行政班" :width="isMobile ? '95%' : '400px'">
       <el-form :model="newAdminClass" label-width="80px">
         <el-form-item label="所属专业" required>
-          <!-- ⚠️ 下拉框绑全量数据 allMajors -->
           <el-select v-model="newAdminClass.majorNo" placeholder="请选择专业" style="width: 100%">
             <el-option v-for="m in allMajors" :key="m.majorNo" :label="m.majorName" :value="m.majorNo" />
           </el-select>
@@ -2056,13 +2231,11 @@ const fetchAttendanceList = async () => {
     <el-dialog v-model="teachClassDialog" title="新增教学班" :width="isMobile ? '95%' : '500px'">
       <el-form :model="newTeachClass" label-width="100px">
         <el-form-item label="所属课程" required>
-          <!-- ⚠️ 下拉框绑全量数据 allCourses -->
           <el-select v-model="newTeachClass.courseNo" placeholder="请选择课程" style="width: 100%">
             <el-option v-for="c in allCourses" :key="c.courseNo" :label="c.courseNo + ' - ' + c.courseName" :value="c.courseNo" />
           </el-select>
         </el-form-item>
         <el-form-item label="任课教师" required>
-          <!-- ⚠️ 下拉框绑全量数据 allTeachers -->
           <el-select v-model="newTeachClass.workNo" placeholder="请选择教师" style="width: 100%">
             <el-option v-for="t in allTeachers" :key="t.workNo" :label="t.workNo + ' - ' + t.name" :value="t.workNo" />
           </el-select>
@@ -2117,6 +2290,7 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
+import { WsClient } from '../utils/ws' // ⚠️ 引入全局WS
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
@@ -2212,6 +2386,9 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
+// ⚠️ 全局 WS 实例
+let globalWs = null
+
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
 
 const currentLabEquipList = computed(() => {
@@ -2228,11 +2405,37 @@ onMounted(() => {
   // 初始化下拉框数据和不需要分页的数据
   fetchDepts(); fetchTitles(); fetchNotices();
   fetchAllDropdownData();
+
+  initGlobalWebSocket() // ⚠️ 建立全局WS
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  if (globalWs) globalWs.close() // ⚠️ 关闭全局WS
 })
+
+// ⚠️ 初始化全局WS
+const initGlobalWebSocket = async () => {
+  try {
+    const res = await request.get('/ws-ticket')
+    if (res.code !== 200) return
+    const wsUrl = `ws://localhost:8080/ws/global?ticket=${res.data}`
+    
+    globalWs = new WsClient(wsUrl)
+    globalWs.onMessageCallback = (msg) => {
+      try {
+        const data = JSON.parse(msg)
+        if (data.type === 'NEW_NOTICE') {
+          fetchNotices() 
+          ElMessage({ type: 'warning', message: '收到一条新系统通知！' })
+        }
+      } catch (e) {}
+    }
+    globalWs.connect()
+  } catch (e) {
+    console.error('全局 WS 建立失败', e)
+  }
+}
 
 // ========== 分页请求方法 ==========
 const fetchStudents = async () => { 
@@ -2554,6 +2757,7 @@ const submitPwd = async () => {
 }
 
 const logout = () => { 
+  if (globalWs) globalWs.close() // ⚠️ 退出时关闭WS
   localStorage.removeItem('loginUser'); 
   localStorage.removeItem('token'); 
   router.push('/') 
