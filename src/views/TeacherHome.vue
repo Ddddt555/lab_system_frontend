@@ -236,16 +236,6 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="previewDialogVisible" :title="'在线预览 - ' + previewFileName" :width="isMobile ? '100%' : '80%'" top="5vh" destroy-on-close>
-      <div style="width: 100%; height: 70vh;">
-        <iframe v-if="previewFileUrl" :src="previewFileUrl" width="100%" height="100%" frameborder="0"></iframe>
-      </div>
-      <template #footer>
-        <el-button @click="previewDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="downloadFile(previewFileName)">下载文件</el-button>
-      </template>
-    </el-dialog>
-
     <!-- 签到弹窗 -->
     <el-dialog v-model="attendanceDialogVisible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -356,10 +346,6 @@ const sessionDialog = ref(false)
 const newSession = ref({ projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
 const selectedLabCapacity = ref(100)
 
-const previewDialogVisible = ref(false)
-const previewFileUrl = ref('')
-const previewFileName = ref('')
-
 const pwdDialog = ref(false)
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
@@ -398,9 +384,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   if (scoreChart) scoreChart.dispose()
   if (rateChart) rateChart.dispose()
-  if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
-    window.URL.revokeObjectURL(previewFileUrl.value)
-  }
 })
 
 const handleTabChange = (name) => {
@@ -469,7 +452,6 @@ const fetchMyClasses = async () => {
   try { 
     const res = await request.get('/teacher/my-classes'); 
     if (res.code === 200) {
-      // ⚠️ 这里假设后端返回了 dailyWeight 和 reportWeight
       myClassOptions.value = res.data.map(item => ({
         ...item,
         dailyWeight: item.dailyWeight || 30,
@@ -560,7 +542,7 @@ const exportScores = () => {
   request.get(`/teacher/score/export?classNo=${selectedClassNo.value}`, {
     responseType: 'blob'
   }).then(res => {
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -615,7 +597,7 @@ const exportAttendance = (sessionNo) => {
   request.get(`/teacher/attendance/export?sessionNo=${sessionNo}`, {
     responseType: 'blob'
   }).then(res => {
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -682,39 +664,34 @@ const openReports = async (session) => { try { const res = await request.get(`/r
 const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } else { ElMessage.error(res.msg) } } catch (error) {} }
 const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
 
+// ⚠️ 核心修改：预览和下载使用新接口
 const previewFile = async (fileName) => {
-  previewFileName.value = fileName
   if (!fileName.toLowerCase().endsWith('.pdf')) {
     ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')
     return
   }
   try {
-    const res = await request.get(`/report/preview/${fileName}`, { responseType: 'blob' })
-    const blob = new Blob([res], { type: 'application/pdf' })
-    if (previewFileUrl.value && previewFileUrl.value.startsWith('blob:')) {
-      window.URL.revokeObjectURL(previewFileUrl.value)
+    const res = await request.get(`/report/preview-url/${fileName}`)
+    if (res.code === 200) {
+      window.open(res.data, '_blank')
+    } else {
+      ElMessage.error(res.msg)
     }
-    previewFileUrl.value = window.URL.createObjectURL(blob)
-    previewDialogVisible.value = true
   } catch (e) {
-    ElMessage.error('预览失败，请检查登录状态或权限！')
+    ElMessage.error('获取预览链接失败')
   }
 }
 
 const downloadFile = async (fileName) => {
   try {
-    const res = await request.get(`/report/download/${fileName}`, { responseType: 'blob' })
-    const blob = new Blob([res])
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', fileName)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
+    const res = await request.get(`/report/download-url/${fileName}`)
+    if (res.code === 200) {
+      window.location.href = res.data
+    } else {
+      ElMessage.error(res.msg)
+    }
   } catch (e) {
-    ElMessage.error('下载失败，请检查登录状态或权限！')
+    ElMessage.error('获取下载链接失败')
   }
 }
 
@@ -782,7 +759,7 @@ const initWebSocket = async (sessionNo) => {
     if (res.code !== 200) return ElMessage.error('获取WS连接凭证失败')
 
     const ticket = res.data
-    const wsUrl = `ws://localhost:8080/ws/attendance/${sessionNo}?ticket=${ticket}`
+    const wsUrl = `${import.meta.env.VITE_WS_BASE_URL}/ws/attendance/${sessionNo}?ticket=${ticket}`
     
     wsClient = new WsClient(wsUrl)
     

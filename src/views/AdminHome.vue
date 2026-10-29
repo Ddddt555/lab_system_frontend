@@ -583,7 +583,7 @@ const initGlobalWebSocket = async () => {
   try {
     const res = await request.get('/ws-ticket')
     if (res.code !== 200) return
-    const wsUrl = `ws://localhost:8080/ws/global?ticket=${res.data}`
+     const wsUrl = `${import.meta.env.VITE_WS_BASE_URL}/ws/global?ticket=${res.data}`
     
     globalWs = new WsClient(wsUrl)
     globalWs.onMessageCallback = (msg) => {
@@ -739,7 +739,7 @@ const downloadTemplate = () => {
   request.get('/admin/student/import-template', {
     responseType: 'blob'
   }).then(res => {
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
