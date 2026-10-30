@@ -389,11 +389,16 @@ onUnmounted(() => {
   if (globalWs) globalWs.close()
 })
 
+// ⚠️ 核心修改：WebSocket 地址自适应
 const initGlobalWebSocket = async () => {
   try {
     const res = await request.get('/ws-ticket')
     if (res.code !== 200) return
-    const wsUrl = `${import.meta.env.VITE_WS_BASE_URL}/ws/global?ticket=${res.data}`
+    
+    // 自动判断当前是 http 还是 https，自动获取当前域名
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+    const host = window.location.host 
+    const wsUrl = `${protocol}${host}/ws/global?ticket=${res.data}`
     
     globalWs = new WsClient(wsUrl)
     globalWs.onMessageCallback = (msg) => {
@@ -583,7 +588,6 @@ const openHistory = async (row) => {
   } catch (error) { ElMessage.error('获取版本历史失败！') }
 }
 
-// ⚠️ 核心修改：学生端预览和下载改用新接口
 const previewFile = async (fileName) => {
   if (!fileName.toLowerCase().endsWith('.pdf')) {
     ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')

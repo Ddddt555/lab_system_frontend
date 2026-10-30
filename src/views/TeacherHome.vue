@@ -751,6 +751,7 @@ const openAttendance = async (session) => {
   } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
 }
 
+// ⚠️ 核心修改：WebSocket 地址自适应
 const initWebSocket = async (sessionNo) => {
   closeWebSocket() 
   
@@ -759,7 +760,10 @@ const initWebSocket = async (sessionNo) => {
     if (res.code !== 200) return ElMessage.error('获取WS连接凭证失败')
 
     const ticket = res.data
-    const wsUrl = `${import.meta.env.VITE_WS_BASE_URL}/ws/attendance/${sessionNo}?ticket=${ticket}`
+    // 自动判断当前是 http 还是 https，自动获取当前域名
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+    const host = window.location.host 
+    const wsUrl = `${protocol}${host}/ws/attendance/${sessionNo}?ticket=${ticket}`
     
     wsClient = new WsClient(wsUrl)
     
