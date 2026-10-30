@@ -7,223 +7,42 @@
           <el-icon :size="22" color="#409EFF"><Bell /></el-icon>
         </el-badge>
         <el-button type="primary" size="small" @click="openPublishDialog" style="margin-right: 10px;">发布通知</el-button>
-        <el-button type="warning" size="small" @click="openPwdDialog" style="margin-right: 10px;">修改密码</el-button>
+        <el-button type="warning" size="small" @click="pwdDialog = true" style="margin-right: 10px;">修改密码</el-button>
         <el-button type="danger" size="small" @click="logout">退出登录</el-button>
       </div>
     </div>
 
     <div class="main-content">
-      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+      <el-tabs v-model="activeTab">
 
         <el-tab-pane label="我负责的场次" name="sessions">
-          <div class="table-responsive">
-            <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
-              <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
-              <el-table-column prop="projectName" label="实验项目名称" width="200" align="center" />
-              <el-table-column label="上课时间" align="center" min-width="180">
-                <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
-              </el-table-column>
-              <el-table-column prop="remainingSeats" label="剩余机位" width="120" align="center">
-                <template #default="scope">{{ scope.row.remainingSeats }} / {{ scope.row.capacity }}</template>
-              </el-table-column>
-              <el-table-column label="操作" width="380" align="center">
-                <template #default="scope">
-                  <el-button type="primary" size="small" @click="viewBookings(scope.row)">预约名单</el-button>
-                  <el-button type="warning" size="small" @click="openAttendance(scope.row)">发起签到</el-button>
-                  <el-button type="success" size="small" @click="openReports(scope.row)">批阅报告</el-button>
-                  <el-button type="info" size="small" @click="exportAttendance(scope.row.sessionNo)">导出考勤</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalSessions" @current-change="handleSessionPageChange" @size-change="fetchSessions" style="margin-top: 15px; justify-content: center;" />
+          <TeacherSessionPanel 
+            v-if="activeTab === 'sessions'" 
+            @start-attendance="handleStartAttendance"
+            @grade-report="handleGradeReport"
+          />
         </el-tab-pane>
 
         <el-tab-pane label="实验项目管理" name="projects">
-          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddProject">发布新实验项目</el-button></div>
-          <div class="table-responsive">
-            <el-table :data="projectList" border style="width: 100%" v-loading="loading">
-              <el-table-column prop="projectNo" label="项目号" width="120" align="center" />
-              <el-table-column prop="projectName" label="项目名称" width="180" align="center" />
-              <el-table-column prop="classNo" label="所属教学班" width="150" align="center" />
-              <el-table-column prop="hours" label="学时" width="80" align="center" />
-              <el-table-column prop="standard" label="考核标准" width="180" align="center" />
-              <el-table-column label="实验指导书" width="150" align="center">
-                <template #default="scope">
-                  <el-upload action="#" :auto-upload="false" :show-file-list="false" :on-change="(file) => handleGuideUpload(file, scope.row.projectNo)">
-                    <el-button type="primary" size="small" plain>
-                      {{ scope.row.guideFile ? '重新上传' : '上传指导书' }}
-                    </el-button>
-                  </el-upload>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-pagination v-model:current-page="projectPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalProjects" @current-change="handleProjectPageChange" @size-change="fetchProjects" style="margin-top: 15px; justify-content: center;" />
+          <TeacherProjectPanel v-if="activeTab === 'projects'" />
         </el-tab-pane>
 
         <el-tab-pane label="安排实验场次" name="schedule">
-          <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddSession">安排新场次</el-button></div>
-          <div class="table-responsive">
-            <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
-              <el-table-column prop="sessionNo" label="场次号" width="120" align="center" />
-              <el-table-column prop="projectName" label="实验项目名称" width="180" align="center" />
-              <el-table-column label="上课时间" align="center" min-width="180">
-                <template #default="scope">{{ formatTeachingTime(scope.row) }}</template>
-              </el-table-column>
-              <el-table-column prop="capacity" label="总容量" width="100" align="center" />
-              <el-table-column label="操作" width="120" align="center">
-                <template #default="scope"><el-button type="danger" size="small" @click="deleteSession(scope.row.sessionNo)">取消排课</el-button></template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-pagination v-model:current-page="sessionPage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalSessions" @current-change="handleSessionPageChange" @size-change="fetchSessions" style="margin-top: 15px; justify-content: center;" />
+          <TeacherSchedulePanel v-if="activeTab === 'schedule'" />
         </el-tab-pane>
 
         <el-tab-pane label="成绩管理" name="scores">
-          <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-            <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="handleClassChange">
-              <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
-            </el-select>
-            <el-button type="warning" v-if="selectedClassNo" @click="openWeightDialog">权重设置</el-button>
-            <el-button type="success" v-if="selectedClassNo" @click="exportScores">导出成绩单</el-button>
-          </div>
-          <div class="table-responsive">
-            <el-table :data="scoreList" border style="width: 100%" v-loading="loading" v-if="selectedClassNo">
-              <el-table-column prop="studentNo" label="学号" width="150" align="center" />
-              <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
-              <el-table-column :label="`平时成绩 (${currentDailyWeight}%)`" width="150" align="center">
-                <template #default="scope"><el-input-number v-model="scope.row.score" :min="0" :max="100" size="small" /></template>
-              </el-table-column>
-              <el-table-column :label="`报告均分 (${currentReportWeight}%)`" width="120" align="center">
-                <template #default="scope"><span style="color: #409EFF; font-weight: bold;">{{ scope.row.reportScore }}</span></template>
-              </el-table-column>
-              <el-table-column label="总评成绩" width="120" align="center">
-                <template #default="scope"><span style="color: red; font-weight: bold; font-size: 16px;">{{ scope.row.totalScore }}</span></template>
-              </el-table-column>
-              <el-table-column label="操作" width="120" align="center">
-                <template #default="scope"><el-button type="primary" size="small" @click="saveScore(scope.row.studentNo)">保存</el-button></template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-pagination v-if="selectedClassNo" v-model:current-page="scorePage" v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50]" :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'" :total="totalScores" @current-change="handleScorePageChange" @size-change="fetchCourseScores" style="margin-top: 15px; justify-content: center;" />
+          <TeacherScorePanel v-if="activeTab === 'scores'" />
         </el-tab-pane>
 
         <el-tab-pane label="数据报表" name="stats">
-          <el-row :gutter="20">
-            <el-col :xs="24" :sm="12" style="margin-bottom: 20px;">
-              <el-card shadow="hover">
-                <div style="font-weight: bold; margin-bottom: 15px; text-align: center;">成绩分布</div>
-                <div ref="scoreChartRef" style="height: 300px;"></div>
-              </el-card>
-            </el-col>
-            <el-col :xs="24" :sm="12">
-              <el-card shadow="hover">
-                <div style="font-weight: bold; margin-bottom: 15px; text-align: center;">实验开出率</div>
-                <div ref="rateChartRef" style="height: 300px;"></div>
-              </el-card>
-            </el-col>
-          </el-row>
+          <TeacherStatsPanel v-if="activeTab === 'stats'" />
         </el-tab-pane>
       </el-tabs>
     </div>
 
-    <el-dialog v-model="bookingDialogVisible" title="学生预约名单" :width="isMobile ? '95%' : '60%'">
-      <div class="table-responsive">
-        <el-table :data="studentList" border style="width: 100%">
-          <el-table-column prop="studentNo" label="学号" width="120" align="center" />
-          <el-table-column prop="name" label="姓名" width="100" align="center" />
-          <el-table-column prop="className" label="班级" width="120" align="center" />
-          <el-table-column prop="bookingTime" label="预约时间" align="center" min-width="150">
-             <template #default="scope">{{ formatTime(scope.row.bookingTime) }}</template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </el-dialog>
-
-    <el-dialog v-model="reportDialogVisible" title="实验报告批阅" :width="isMobile ? '95%' : '80%'">
-      <div class="table-responsive">
-        <el-table :data="reportList" border style="width: 100%">
-          <el-table-column prop="studentName" label="姓名" width="90" align="center" />
-          <el-table-column prop="className" label="班级" width="110" align="center" />
-          <el-table-column prop="submitTime" label="提交时间" width="150" align="center">
-            <template #default="scope">{{ formatTime(scope.row.submitTime) }}</template>
-          </el-table-column>
-          <el-table-column label="报告文件" width="150" align="center">
-            <template #default="scope">
-              <el-button type="primary" link @click="previewFile(scope.row.fileUrl)">在线预览</el-button>
-              <el-button type="success" link @click="downloadFile(scope.row.fileUrl)">下载</el-button>
-            </template>
-          </el-table-column>
-          <el-table-column label="分数" width="80" align="center">
-             <template #default="scope">{{ scope.row.score !== null ? scope.row.score : '未批阅' }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="100" align="center">
-            <template #default="scope"><el-button type="warning" size="small" @click="gradeReport(scope.row)">批阅</el-button></template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </el-dialog>
-
-    <el-dialog v-model="projectDialog" title="发布新实验项目" :width="isMobile ? '95%' : '500px'">
-      <el-form :model="newProject" label-width="100px">
-        <el-form-item label="项目名称" required><el-input v-model="newProject.projectName" /></el-form-item>
-        <el-form-item label="所属教学班" required>
-          <el-select v-model="newProject.classNo" placeholder="请选择教学班" style="width: 100%">
-            <el-option v-for="c in myClassOptions" :key="c.classNo" :label="c.displayName" :value="c.classNo" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="学时"><el-input-number v-model="newProject.hours" :min="1" /></el-form-item>
-        <el-form-item label="考核标准"><el-input v-model="newProject.standard" type="textarea" :rows="2" /></el-form-item>
-      </el-form>
-      <template #footer><el-button @click="projectDialog = false">取消</el-button><el-button type="primary" @click="submitAddProject">确认发布</el-button></template>
-    </el-dialog>
-
-    <el-dialog v-model="sessionDialog" title="安排实验场次" :width="isMobile ? '95%' : '500px'">
-      <el-form :model="newSession" label-width="80px">
-        <el-form-item label="实验项目" required>
-          <el-select v-model="newSession.projectNo" placeholder="请选择项目" style="width: 100%">
-            <el-option v-for="p in allProjects" :key="p.projectNo" :label="p.projectNo + ' - ' + p.projectName" :value="p.projectNo" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="实验室" required>
-          <el-select v-model="newSession.roomNo" placeholder="请选择实验室" style="width: 100%" @change="handleLabChange">
-            <el-option v-for="r in labOptions" :key="r.roomNo" :label="r.roomNo + ' - ' + r.roomName" :value="r.roomNo" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="学期" required>
-          <el-select v-model="newSession.semester" style="width: 100%" placeholder="请选择学期">
-            <el-option v-for="s in semesterOptions" :key="s.semesterName" :label="s.semesterName" :value="s.semesterName" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="周次" required><el-input-number v-model="newSession.weekNum" :min="1" :max="30" /><span style="margin-left:10px; color:gray;">周</span></el-form-item>
-        <el-form-item label="星期" required>
-          <el-select v-model="newSession.dayOfWeek" style="width: 100%">
-            <el-option label="星期一" :value="1" /><el-option label="星期二" :value="2" /><el-option label="星期三" :value="3" />
-            <el-option label="星期四" :value="4" /><el-option label="星期五" :value="5" /><el-option label="星期六" :value="6" /><el-option label="星期日" :value="7" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="节次" required>
-          <el-select v-model="newSession.period" style="width: 100%">
-            <el-option label="1-2节 (08:00)" value="1-2节" /><el-option label="3-4节 (10:00)" value="3-4节" />
-            <el-option label="5-6节 (14:00)" value="5-6节" /><el-option label="7-8节 (16:00)" value="7-8节" /><el-option label="9-10节 (19:00)" value="9-10节" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="容量(机位)" required>
-          <el-input-number v-model="newSession.capacity" :min="1" :max="selectedLabCapacity" />
-        </el-form-item>
-      </el-form>
-      <template #footer><el-button @click="sessionDialog = false">取消</el-button><el-button type="primary" @click="submitAddSession">确认排课</el-button></template>
-    </el-dialog>
-
-    <el-dialog v-model="pwdDialog" title="修改密码" :width="isMobile ? '95%' : '400px'">
-      <el-form :model="pwdForm" label-width="80px">
-        <el-form-item label="原密码" required><el-input v-model="pwdForm.oldPassword" type="password" show-password /></el-form-item>
-        <el-form-item label="新密码" required><el-input v-model="pwdForm.newPassword" type="password" show-password /></el-form-item>
-        <el-form-item label="确认密码" required><el-input v-model="pwdForm.confirmPassword" type="password" show-password /></el-form-item>
-      </el-form>
-      <template #footer><el-button @click="pwdDialog = false">取消</el-button><el-button type="primary" @click="submitPwd">确认修改</el-button></template>
-    </el-dialog>
+    <!-- 公共弹窗 -->
+    <UpdatePasswordDialog v-model="pwdDialog" role="teacher" />
 
     <el-dialog v-model="publishDialogVisible" title="发布通知" :width="isMobile ? '95%' : '500px'">
       <el-form :model="noticeForm" label-width="80px">
@@ -236,47 +55,9 @@
       </template>
     </el-dialog>
 
-    <!-- 签到弹窗 -->
-    <el-dialog v-model="attendanceDialogVisible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <p style="color: #666; font-size: 15px; margin-bottom: 15px;">请学生打开学生端，输入以下 6 位数字进行签到</p>
-        <div style="font-size: 56px; font-weight: bold; color: #409EFF; letter-spacing: 12px; background: #ecf5ff; padding: 20px; border-radius: 8px; box-shadow: inset 0 0 10px #d9ecff;">
-          {{ attendanceCode || '------' }}
-        </div>
-      </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <span style="font-weight: bold; color: #303133;">已签到名单 ({{ attendanceList.length }}人)</span>
-        <el-button type="primary" size="small" @click="fetchAttendanceList">手动刷新</el-button>
-      </div>
-      <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #ebeef5; border-radius: 4px;">
-        <el-table :data="attendanceList" size="small" stripe>
-          <el-table-column prop="studentNo" label="学号" width="150" align="center" />
-          <el-table-column prop="name" label="姓名" align="center" />
-          <el-table-column label="签到时间" align="center">
-             <template #default="scope">{{ formatTime(scope.row.bookingTime) }}</template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </el-dialog>
-
-    <!-- 权重设置弹窗 -->
-    <el-dialog v-model="weightDialogVisible" title="成绩权重设置" :width="isMobile ? '90%' : '400px'" center>
-      <el-form label-width="100px">
-        <el-form-item label="平时成绩占比">
-          <el-input-number v-model="weightForm.dailyWeight" :min="0" :max="100" />
-          <span style="margin-left: 10px;">%</span>
-        </el-form-item>
-        <el-form-item label="报告成绩占比">
-          <el-input-number v-model="weightForm.reportWeight" :min="0" :max="100" />
-          <span style="margin-left: 10px;">%</span>
-        </el-form-item>
-        <el-alert title="注意：修改权重后，系统会自动重算该班级所有已录入成绩的学生总评！" type="warning" :closable="false" show-icon />
-      </el-form>
-      <template #footer>
-        <el-button @click="weightDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitWeight">保存并重算</el-button>
-      </template>
-    </el-dialog>
+    <!-- 🛑【独立业务弹窗】🛑 -->
+    <AttendanceDialog v-model="attendanceDialogVisible" :sessionNo="currentSessionNo" />
+    <GradeReportDialog v-model="gradeDialogVisible" :projectNo="currentProjectNo" />
 
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
@@ -294,183 +75,49 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick, onBeforeUnmount } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import * as echarts from 'echarts'
+import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
-import { WsClient } from '../utils/ws'
+
+// 🛑【引入所有子组件】🛑
+import TeacherSessionPanel from '../components/TeacherSessionPanel.vue'
+import TeacherProjectPanel from '../components/TeacherProjectPanel.vue'
+import TeacherSchedulePanel from '../components/TeacherSchedulePanel.vue'
+import TeacherScorePanel from '../components/TeacherScorePanel.vue'
+import TeacherStatsPanel from '../components/TeacherStatsPanel.vue'
+import AttendanceDialog from '../components/AttendanceDialog.vue'
+import GradeReportDialog from '../components/GradeReportDialog.vue'
+import UpdatePasswordDialog from '../components/UpdatePasswordDialog.vue'
 
 const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const workNo = loginUser ? loginUser.userNo : ''
 if (!workNo) router.push('/')
 
-const screenWidth = ref(window.innerWidth)
-const isMobile = computed(() => screenWidth.value < 768)
-const handleResize = () => { screenWidth.value = window.innerWidth }
-
+const isMobile = computed(() => window.innerWidth < 768)
 const activeTab = ref('sessions')
-const loading = ref(false)
-
-// 表格数据（分页）
-const sessionList = ref([])
-const projectList = ref([])
-const scoreList = ref([])
-const totalSessions = ref(0)
-const totalProjects = ref(0)
-const totalScores = ref(0)
-
-// 下拉框数据（全量）
-const myClassOptions = ref([])
-const labOptions = ref([])
-const semesterOptions = ref([])
-const allProjects = ref([])
-
-const sessionPage = ref(1)
-const projectPage = ref(1)
-const scorePage = ref(1)
-const pageSize = ref(10)
-
-const selectedClassNo = ref('')
-const bookingDialogVisible = ref(false)
-const studentList = ref([])
-const reportDialogVisible = ref(false)
-const reportList = ref([])
-
-const projectDialog = ref(false)
-const newProject = ref({ projectName: '', classNo: '', hours: 2, standard: '' })
-
-const sessionDialog = ref(false)
-const newSession = ref({ projectNo: '', roomNo: '', semester: '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 })
-const selectedLabCapacity = ref(100)
 
 const pwdDialog = ref(false)
-const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
+// 通知管理
 const publishDialogVisible = ref(false)
 const noticeForm = ref({ title: '', content: '' })
 const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-// 签到相关变量
+// 签到和批阅弹窗的触发状态
 const attendanceDialogVisible = ref(false)
-const attendanceCode = ref('')
-const attendanceList = ref([])
 const currentSessionNo = ref('')
-let wsClient = null 
 
-// ⚠️ 权重设置相关变量
-const weightDialogVisible = ref(false)
-const weightForm = ref({ dailyWeight: 30, reportWeight: 70 })
-const currentDailyWeight = ref(30)
-const currentReportWeight = ref(70)
-
-const scoreChartRef = ref(null)
-const rateChartRef = ref(null)
-let scoreChart = null
-let rateChart = null
+const gradeDialogVisible = ref(false)
+const currentProjectNo = ref('')
 
 onMounted(() => {
-  fetchSessions(); fetchProjects(); fetchMyClasses(); fetchLabs(); fetchSemesters(); fetchNotices();
-  fetchAllProjectsForDropdown();
-  window.addEventListener('resize', handleResize)
+  fetchNotices()
 })
-
-onBeforeUnmount(() => {
-  closeWebSocket() 
-  window.removeEventListener('resize', handleResize)
-  if (scoreChart) scoreChart.dispose()
-  if (rateChart) rateChart.dispose()
-})
-
-const handleTabChange = (name) => {
-  if (name === 'stats') nextTick(() => renderCharts())
-}
-
-// ========== 表格分页请求 ==========
-const fetchSessions = async () => {
-  loading.value = true
-  try {
-    const res = await request.get('/teacher/my-sessions', { params: { page: sessionPage.value, size: pageSize.value } })
-    if (res.code === 200) { sessionList.value = res.data.records; totalSessions.value = res.data.total; }
-  } finally {
-    loading.value = false
-  }
-}
-
-const fetchProjects = async () => { 
-  try { 
-    const res = await request.get('/teacher/project/list', { params: { page: projectPage.value, size: pageSize.value } }); 
-    if (res.code === 200) { projectList.value = res.data.records; totalProjects.value = res.data.total; } 
-  } catch (e) {} 
-}
-
-const fetchCourseScores = async () => { 
-  if (!selectedClassNo.value) return; 
-  loading.value = true; 
-  try { 
-    const res = await request.get('/teacher/scores', { params: { classNo: selectedClassNo.value, page: scorePage.value, size: pageSize.value } }); 
-    if (res.code === 200) { scoreList.value = res.data.records; totalScores.value = res.data.total; } 
-  } catch (e) { 
-    ElMessage.error('获取成绩单失败') 
-  } finally { 
-    loading.value = false 
-  } 
-}
-
-// 页码切换事件
-const handleSessionPageChange = (val) => { sessionPage.value = val; fetchSessions(); }
-const handleProjectPageChange = (val) => { projectPage.value = val; fetchProjects(); }
-const handleScorePageChange = (val) => { scorePage.value = val; fetchCourseScores(); }
-
-// ⚠️ 选课下拉框切换时，同步更新权重变量
-const handleClassChange = () => { 
-  scorePage.value = 1; 
-  const targetClass = myClassOptions.value.find(c => c.classNo === selectedClassNo.value);
-  if (targetClass) {
-    currentDailyWeight.value = targetClass.dailyWeight || 30;
-    currentReportWeight.value = targetClass.reportWeight || 70;
-  } else {
-    currentDailyWeight.value = 30;
-    currentReportWeight.value = 70;
-  }
-  fetchCourseScores(); 
-}
-
-// ========== 下拉框全量请求 ==========
-const fetchAllProjectsForDropdown = async () => {
-  try {
-    const res = await request.get('/teacher/project/list');
-    if (res.code === 200) allProjects.value = res.data;
-  } catch (e) {}
-}
-
-const fetchMyClasses = async () => { 
-  try { 
-    const res = await request.get('/teacher/my-classes'); 
-    if (res.code === 200) {
-      myClassOptions.value = res.data.map(item => ({
-        ...item,
-        dailyWeight: item.dailyWeight || 30,
-        reportWeight: item.reportWeight || 70
-      }))
-    } 
-  } catch (e) {} 
-}
-
-const fetchLabs = async () => { try { const res = await request.get('/teacher/labs'); if (res.code === 200) labOptions.value = res.data } catch (e) {} }
-const fetchSemesters = async () => {
-  try {
-    const res = await request.get('/teacher/semesters')
-    if (res.code === 200) {
-      semesterOptions.value = res.data
-      if (semesterOptions.value.length > 0 && !newSession.value.semester) newSession.value.semester = semesterOptions.value[0].semesterName
-    }
-  } catch (e) {}
-}
 
 const fetchNotices = async () => {
   try {
@@ -487,7 +134,12 @@ const fetchNotices = async () => {
   } catch (e) {}
 }
 
-const openNoticeDrawer = () => { noticeDrawerVisible.value = true; hasUnread.value = false; if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime) }
+const openNoticeDrawer = () => { 
+  noticeDrawerVisible.value = true
+  hasUnread.value = false 
+  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime) 
+}
+
 const openPublishDialog = () => { noticeForm.value = { title: '', content: '' }; publishDialogVisible.value = true }
 
 const submitPublish = async () => {
@@ -501,223 +153,17 @@ const submitPublish = async () => {
   } catch (e) { ElMessage.error('发布失败') }
 }
 
-const renderCharts = async () => {
-  if (scoreChartRef.value) {
-    if (!scoreChart) scoreChart = echarts.init(scoreChartRef.value)
-    const res = await request.get('/teacher/stats/score-distribution')
-    if (res.code === 200) {
-      const data = res.data
-      scoreChart.setOption({
-        tooltip: { trigger: 'item' }, legend: { top: 'bottom' },
-        series: [{ name: '成绩分布', type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false, itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }, label: { show: false, position: 'center' }, emphasis: { label: { show: true, fontSize: 20, fontWeight: 'bold' } }, labelLine: { show: false },
-            data: [{ value: data['优秀'], name: '优秀 (90-100)', itemStyle: { color: '#67C23A' } }, { value: data['良好'], name: '良好 (80-89)', itemStyle: { color: '#409EFF' } }, { value: data['中等'], name: '中等 (70-79)', itemStyle: { color: '#E6A23C' } }, { value: data['及格'], name: '及格 (60-69)', itemStyle: { color: '#909399' } }, { value: data['不及格'], name: '不及格 (<60)', itemStyle: { color: '#F56C6C' } }]
-        }]
-      }, true)
-    }
-  }
-  if (rateChartRef.value) {
-    if (!rateChart) rateChart = echarts.init(rateChartRef.value)
-    const res = await request.get('/teacher/stats/experiment-rate')
-    if (res.code === 200) {
-      const data = res.data
-      rateChart.setOption({
-        tooltip: { formatter: '{b}: {c}%' },
-        series: [{ type: 'gauge', startAngle: 180, endAngle: 0, min: 0, max: 100, splitNumber: 5, itemStyle: { color: '#409EFF' }, progress: { show: true, width: 18 }, pointer: { show: false }, axisLine: { lineStyle: { width: 18 } }, axisTick: { show: false }, splitLine: { length: 15, lineStyle: { width: 2, color: '#999' } }, axisLabel: { distance: 25, color: '#999', fontSize: 12 }, detail: { valueAnimation: true, formatter: '{value}%', color: '#409EFF', fontSize: 30, offsetCenter: [0, '40%'] }, data: [{ value: parseFloat(data.rate), name: `已开 ${data.opened} / 共 ${data.total} 个` }], title: { offsetCenter: [0, '70%'], fontSize: 14, color: '#666' } }]
-      }, true)
-    }
-  }
+const handleStartAttendance = (session) => {
+  currentSessionNo.value = session.sessionNo
+  attendanceDialogVisible.value = true
 }
 
-const saveScore = async (studentNo) => {
-  const row = scoreList.value.find(item => item.studentNo === studentNo)
-  if (!row || row.score === null || row.score === undefined) return ElMessage.warning('请输入平时成绩')
-  try {
-    const res = await request.post(`/teacher/score/save?studentNo=${studentNo}&classNo=${selectedClassNo.value}&dailyScore=${row.score}`)
-    if (res.code === 200) { ElMessage.success(res.data); fetchCourseScores() } else { ElMessage.error(res.msg) }
-  } catch (error) { ElMessage.error('保存失败') }
+const handleGradeReport = (session) => {
+  currentProjectNo.value = session.projectNo
+  gradeDialogVisible.value = true
 }
 
-const exportScores = () => {
-  if (!selectedClassNo.value) return
-  request.get(`/teacher/score/export?classNo=${selectedClassNo.value}`, {
-    responseType: 'blob'
-  }).then(res => {
-    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `成绩单_${selectedClassNo.value}_${new Date().getTime()}.xlsx`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-  }).catch(e => {
-    console.error(e)
-    ElMessage.error('导出失败，请检查后端服务')
-  })
-}
-
-// ⚠️ 权重设置相关方法
-const openWeightDialog = () => {
-  weightForm.value = { 
-    dailyWeight: currentDailyWeight.value, 
-    reportWeight: currentReportWeight.value 
-  }
-  weightDialogVisible.value = true
-}
-
-const submitWeight = async () => {
-  if (weightForm.value.dailyWeight + weightForm.value.reportWeight !== 100) {
-    return ElMessage.warning('平时成绩和报告成绩的占比之和必须等于 100%！')
-  }
-  try {
-    const res = await request.post('/teacher/score/weight', null, {
-      params: {
-        classNo: selectedClassNo.value,
-        dailyWeight: weightForm.value.dailyWeight,
-        reportWeight: weightForm.value.reportWeight
-      }
-    })
-    if (res.code === 200) {
-      ElMessage.success(res.data)
-      weightDialogVisible.value = false
-      currentDailyWeight.value = weightForm.value.dailyWeight
-      currentReportWeight.value = weightForm.value.reportWeight
-      fetchCourseScores() // 刷新列表
-    } else {
-      ElMessage.error(res.msg)
-    }
-  } catch (e) {
-    ElMessage.error('网络错误')
-  }
-}
-
-// ⚠️ 新增：导出考勤表
-const exportAttendance = (sessionNo) => {
-  request.get(`/teacher/attendance/export?sessionNo=${sessionNo}`, {
-    responseType: 'blob'
-  }).then(res => {
-    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `考勤表_${sessionNo}_${new Date().getTime()}.xlsx`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    ElMessage.success('考勤表导出成功！')
-  }).catch(e => {
-    console.error(e)
-    ElMessage.error('导出失败，请检查网络或联系管理员')
-  })
-}
-
-const handleLabChange = (roomNo) => { const lab = labOptions.value.find(r => r.roomNo === roomNo); if (lab) { selectedLabCapacity.value = lab.capacity; if (newSession.value.capacity > lab.capacity) newSession.value.capacity = lab.capacity } }
-const formatTeachingTime = (row) => { if (!row || !row.semester) return ''; const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']; return `${row.semester} 第${row.weekNum}周 ${days[row.dayOfWeek]} ${row.period}` }
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
-
-const handleGuideUpload = async (file, projectNo) => {
-  const rawFile = file.raw
-  if (!rawFile) return
-  const formData = new FormData()
-  formData.append('file', rawFile)
-  formData.append('projectNo', projectNo)
-  try {
-    const res = await request.post('/teacher/project/upload-guide', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-    if (res.code === 200) { ElMessage.success('指导书上传成功！'); fetchProjects() } else { ElMessage.error(res.msg) }
-  } catch (error) { ElMessage.error('上传失败！') }
-}
-
-const openAddProject = () => { newProject.value = { projectName: '', classNo: '', hours: 2, standard: '' }; projectDialog.value = true }
-const submitAddProject = async () => {
-  if (!newProject.value.projectName || !newProject.value.classNo) return ElMessage.warning('请填写完整信息！')
-  try {
-    const res = await request.post('/teacher/project/add', newProject.value)
-    if (res.code === 200) { 
-      ElMessage.success(res.data); 
-      projectDialog.value = false; 
-      fetchProjects(); 
-      fetchAllProjectsForDropdown();
-    } else { ElMessage.error(res.msg) }
-  } catch (e) { ElMessage.error('请求失败') }
-}
-
-const openAddSession = () => { newSession.value = { projectNo: '', roomNo: '', semester: semesterOptions.value.length > 0 ? semesterOptions.value[0].semesterName : '', weekNum: 1, dayOfWeek: 1, period: '1-2节', capacity: 50 }; selectedLabCapacity.value = 100; sessionDialog.value = true }
-const submitAddSession = async () => {
-  if (!newSession.value.projectNo || !newSession.value.roomNo || !newSession.value.period || !newSession.value.semester) return ElMessage.warning('请填写完整信息！')
-  try {
-    const res = await request.post('/teacher/session/add', newSession.value)
-    if (res.code === 200) { ElMessage.success(res.data); sessionDialog.value = false; fetchSessions(); activeTab.value = 'sessions' } else { ElMessage.error(res.msg) }
-  } catch (error) { ElMessage.error('排课失败！') }
-}
-
-const deleteSession = async (sessionNo) => {
-  try {
-    await ElMessageBox.confirm('确定要取消该场次的排课吗？', '警告', { type: 'warning' })
-    const res = await request.delete(`/teacher/session/delete?sessionNo=${sessionNo}`)
-    if (res.code === 200) { ElMessage.success('已取消排课！'); fetchSessions() } else { ElMessage.error(res.msg) }
-  } catch (e) {}
-}
-const viewBookings = async (session) => { try { const res = await request.get(`/teacher/session-bookings?sessionNo=${session.sessionNo}`); if (res.code === 200) { studentList.value = res.data; bookingDialogVisible.value = true } } catch (error) {} }
-const openReports = async (session) => { try { const res = await request.get(`/report/list-by-project?projectNo=${session.projectNo}`); if (res.code === 200) { reportList.value = res.data; reportDialogVisible.value = true } else { ElMessage.error(res.msg) } } catch (error) {} }
-const gradeReport = async (report) => { try { const { value: score } = await ElMessageBox.prompt('请输入分数', '打分', { inputPattern: /^([0-9]|[1-9]\d|100)$/, inputErrorMessage: '0-100' }); const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语'); const res = await request.post(`/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`); if (res.code === 200) { ElMessage.success('批阅成功！'); openReports({ projectNo: report.projectNo }) } else { ElMessage.error(res.msg) } } catch (error) {} }
-const openPwdDialog = () => { pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }; pwdDialog.value = true }
-
-// ⚠️ 核心修改：预览和下载使用新接口
-const previewFile = async (fileName) => {
-  if (!fileName.toLowerCase().endsWith('.pdf')) {
-    ElMessage.warning('该文件格式不支持在线预览，请下载后查看！')
-    return
-  }
-  try {
-    const res = await request.get(`/report/preview-url/${fileName}`)
-    if (res.code === 200) {
-      window.open(res.data, '_blank')
-    } else {
-      ElMessage.error(res.msg)
-    }
-  } catch (e) {
-    ElMessage.error('获取预览链接失败')
-  }
-}
-
-const downloadFile = async (fileName) => {
-  try {
-    const res = await request.get(`/report/download-url/${fileName}`)
-    if (res.code === 200) {
-      window.location.href = res.data
-    } else {
-      ElMessage.error(res.msg)
-    }
-  } catch (e) {
-    ElMessage.error('获取下载链接失败')
-  }
-}
-
-const submitPwd = async () => {
-  const { oldPassword, newPassword, confirmPassword } = pwdForm.value
-  if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
-  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
-  try {
-    const res = await request.post('/teacher/update-password', null, {
-      params: { oldPwd: oldPassword, newPwd: newPassword }
-    })
-    if (res.code === 200) {
-      ElMessage.success('修改成功，请重新登录！')
-      pwdDialog.value = false
-      setTimeout(() => {
-        localStorage.removeItem('loginUser')
-        localStorage.removeItem('token')
-        router.push('/')
-      }, 1000)
-    } else {
-      ElMessage.error(res.msg)
-    }
-  } catch (error) {
-    ElMessage.error('网络错误，修改失败！')
-  }
-}
 
 const logout = async () => {
   try {
@@ -725,75 +171,10 @@ const logout = async () => {
   } catch (e) {
     // 忽略报错
   } finally {
-    closeWebSocket() 
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
     router.push('/')
   }
-}
-
-// 发起签到
-const openAttendance = async (session) => {
-  currentSessionNo.value = session.sessionNo
-  attendanceCode.value = '------' 
-  attendanceList.value = []
-  attendanceDialogVisible.value = true
-  
-  try {
-    const res = await request.post(`/teacher/attendance/start?sessionNo=${session.sessionNo}`)
-    if (res.code === 200) {
-      attendanceCode.value = res.data
-      fetchAttendanceList() 
-      await initWebSocket(session.sessionNo)
-    } else {
-      ElMessage.error(res.msg)
-    }
-  } catch (e) { ElMessage.error('获取签到码失败，请检查网络') }
-}
-
-// ⚠️ 核心修改：WebSocket 地址自适应
-const initWebSocket = async (sessionNo) => {
-  closeWebSocket() 
-  
-  try {
-    const res = await request.get('/ws-ticket')
-    if (res.code !== 200) return ElMessage.error('获取WS连接凭证失败')
-
-    const ticket = res.data
-    // 自动判断当前是 http 还是 https，自动获取当前域名
-    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
-    const host = window.location.host 
-    const wsUrl = `${protocol}${host}/ws/attendance/${sessionNo}?ticket=${ticket}`
-    
-    wsClient = new WsClient(wsUrl)
-    
-    wsClient.onMessageCallback = (message) => {
-      if (message === 'NEW_SIGN_IN') {
-        fetchAttendanceList()
-        ElMessage.success('有学生签到啦！')
-      }
-    }
-    
-    wsClient.connect()
-    
-  } catch (e) {
-    console.error('WebSocket 初始化失败', e)
-  }
-}
-
-const closeWebSocket = () => {
-  if (wsClient) {
-    wsClient.close()
-    wsClient = null
-  }
-}
-
-const fetchAttendanceList = async () => {
-  if (!currentSessionNo.value) return
-  try {
-    const res = await request.get(`/teacher/attendance/list?sessionNo=${currentSessionNo.value}`)
-    if (res.code === 200) attendanceList.value = res.data
-  } catch (e) { console.error(e) }
 }
 </script>
 
@@ -803,14 +184,11 @@ const fetchAttendanceList = async () => {
 .header h2 { margin: 0; color: #333; }
 .main-content { padding: 40px; max-width: 1300px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1); margin-top: 20px;}
 
-.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
 @media screen and (max-width: 768px) {
   .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }
   .header h2 { font-size: 16px; }
   .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 10px;}
   .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }
   .el-tabs__nav-wrap::after { display: none; }
-  .el-pagination { justify-content: center !important; flex-wrap: wrap; }
 }
 </style>
