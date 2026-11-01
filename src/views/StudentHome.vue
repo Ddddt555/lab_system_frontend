@@ -52,7 +52,8 @@
       :projectNo="historyProjectNo" 
     />
 
-    <UpdatePasswordDialog v-model="pwdDialog" role="student" />
+    <!-- 🛑 核心修复：传入 forced 属性 -->
+    <UpdatePasswordDialog v-model="pwdDialog" role="student" :forced="loginUser?.mustChangePassword === true" />
 
     <SignInDialog 
       v-model="signDialogVisible"
@@ -132,6 +133,11 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
   fetchNotices()
   initGlobalWebSocket()
+  
+  // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
+  if (loginUser && loginUser.mustChangePassword) {
+    pwdDialog.value = true
+  }
 })
 
 onUnmounted(() => {

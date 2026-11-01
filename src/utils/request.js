@@ -50,7 +50,16 @@ request.interceptors.response.use(
         }
       } else if (status === 403) {
         // 403 代表没有权限（我们在后端写的 @RequireRole 或拦截器触发的）
-        ElMessage.error('非法操作：您没有权限访问该资源！')
+        // 🛑【核心修复】优先显示后端返回的具体错误信息
+        const backendMsg = error.response.data?.msg
+        
+        if (backendMsg === '请先修改初始密码！') {
+          ElMessage.warning(backendMsg)
+          // 可选：如果你想让它在每次报错时都弹一次，可以在这里加逻辑
+          // 但一般建议靠主页面的全局弹窗来遮挡
+        } else {
+          ElMessage.error(backendMsg || '非法操作：您没有权限访问该资源！')
+        }
       } else {
         ElMessage.error(error.response.data?.msg || `请求失败 (${status})`)
       }

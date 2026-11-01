@@ -72,7 +72,8 @@
     </div>
 
     <!-- 公共弹窗 -->
-    <UpdatePasswordDialog v-model="pwdDialog" role="admin" />
+    <!-- 🛑 核心修复：传入 forced 属性 -->
+    <UpdatePasswordDialog v-model="pwdDialog" role="admin" :forced="loginUser?.mustChangePassword === true" />
 
     <el-dialog v-model="publishDialogVisible" title="发布通知" :width="isMobile ? '95%' : '500px'">
       <el-form :model="noticeForm" label-width="80px">
@@ -146,6 +147,11 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
   fetchNotices();
   initGlobalWebSocket()
+
+  // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
+  if (loginUser && loginUser.mustChangePassword) {
+    pwdDialog.value = true
+  }
 })
 
 onUnmounted(() => {

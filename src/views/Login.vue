@@ -125,8 +125,6 @@ const handleLogin = async () => {
     })
 
     if (res.code === 200) {
-      // ⚠️ [第一步改造] user 现在是 { userNo, name, role } 三个字段
-      //    role 由后端返回，前端不再手动赋值
       const userData = res.data.user
       const token = res.data.token
 
@@ -135,7 +133,17 @@ const handleLogin = async () => {
       localStorage.setItem('loginUser', JSON.stringify(userData))
       localStorage.setItem('token', token)
 
-      // ⚠️ [第一步改造] 按后端返回的 role 跳转
+      // 🛑【核心修复】判断是否需要强制改密
+      if (userData.mustChangePassword) {
+        ElMessage({
+          message: '您的密码为初始密码或已被重置，请先修改密码！',
+          type: 'warning',
+          duration: 5000,
+          showClose: true
+        })
+        // 不需要跳转逻辑，直接去主页，主页的 onMounted 会检测并强制弹窗
+      }
+
       if (userData.role === 'student') {
         router.push('/student-home')
       } else if (userData.role === 'teacher') {
