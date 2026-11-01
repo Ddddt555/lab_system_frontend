@@ -2,18 +2,52 @@
   <div class="admin-log-panel">
     <div class="table-responsive">
       <el-table :data="logList" border style="width: 100%" v-loading="loading">
-        <el-table-column prop="id" label="日志ID" width="100" align="center" />
-        <el-table-column prop="operator" label="操作人" width="150" align="center" />
-        <el-table-column prop="action" label="操作动作" min-width="200" align="center">
+        
+        <!-- 1. 操作人 -->
+        <el-table-column prop="operator" label="操作人" width="140" align="center" />
+
+        <!-- 2. 操作动作 -->
+        <el-table-column prop="action" label="操作动作" min-width="150" align="center">
           <template #default="scope">
             <el-tag :type="scope.row.action.includes('删除') || scope.row.action.includes('取消') || scope.row.action.includes('失败') ? 'danger' : 'success'">
               {{ scope.row.action }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="操作时间" width="180" align="center">
+
+        <!-- 3. 执行状态 (成功/失败) -->
+        <el-table-column prop="success" label="状态" width="80" align="center">
+          <template #default="scope">
+            <el-tag v-if="scope.row.success === 1" type="success" size="small">成功</el-tag>
+            <el-tooltip v-else :content="scope.row.errorMsg || '未知异常'" placement="top">
+              <el-tag type="danger" size="small" style="cursor: pointer;">失败</el-tag>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+
+        <!-- 4. 请求路径 (超长省略) -->
+        <el-table-column prop="uri" label="请求路径" min-width="180" show-overflow-tooltip align="center" />
+
+        <!-- 5. 请求方法 (GET/POST/DELETE 等) -->
+        <el-table-column prop="method" label="方法" width="80" align="center">
+          <template #default="scope">
+            <el-tag :type="scope.row.method === 'GET' ? 'info' : (scope.row.method === 'POST' ? 'primary' : 'warning')" size="small">
+              {{ scope.row.method }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <!-- 6. IP地址 -->
+        <el-table-column prop="ip" label="IP地址" width="130" align="center" />
+
+        <!-- 7. 耗时 -->
+        <el-table-column prop="costMs" label="耗时(ms)" width="100" align="center" />
+
+        <!-- 8. 操作时间 -->
+        <el-table-column prop="createTime" label="操作时间" width="160" align="center">
           <template #default="scope">{{ scope.row.createTime ? scope.row.createTime.replace('T', ' ').substring(0, 19) : '' }}</template>
         </el-table-column>
+
       </el-table>
     </div>
     

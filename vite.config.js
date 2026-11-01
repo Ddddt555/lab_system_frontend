@@ -1,34 +1,42 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig({
-  plugins: [vue()],
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    allowedHosts: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true
-      },
-      // WebSocket 代理
-      '/ws': {
-        target: 'ws://localhost:8080',
-        ws: true,
-        changeOrigin: true
+export default defineConfig(({ mode }) => {
+  // 读取当前构建模式下的环境变量
+  const env = loadEnv(mode, process.cwd())
+
+  // 🛑【核心逻辑】如果环境变量中配置了 VITE_BUILD_TARGET=backend
+  // 则输出到后端的 static 目录，否则输出到默认的 dist 目录
+  const isBuildToBackend = env.VITE_BUILD_TARGET === 'backend'
+
+  return {
+    plugins: [vue()],
+    server: {
+      host: '0.0.0.0',
+      port: 5173,
+      allowedHosts: true,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
+        },
+        '/ws': {
+          target: 'ws://localhost:8080',
+          ws: true,
+          changeOrigin: true
+        }
       }
+    },
+    build: {
+      chunkSizeWarningLimit: 1500,
+      // 动态切换输出目录
+      outDir: isBuildToBackend 
+        ? '../labsystem/labsystem/src/main/resources/static' 
+        : 'dist',
+      
+      // 🛑【安全底线】必须为 false！
+      // 即使输出到 static，也绝对不能清空目录，防止误删后端手动放入的静态文件
+      emptyOutDir: false 
     }
-  },
-  build: {
-    chunkSizeWarningLimit: 1500,
-    // ⚠️ 根据相对路径直通后端 static 目录
-    // 解释：../ 退到 Project，然后进入 labsystem/labsystem/...
-    outDir: '../labsystem/labsystem/src/main/resources/static',
-    
-    // ⚠️ 警告：这会在打包前清空 static 目录。
-    // 如果你在 static 里放了其他后端特有或手动添加的静态文件，设为 true 会导致它们被删除！
-    // 建议先设为 false。如果确实全是前端产物，再改为 true。
-    emptyOutDir: true 
   }
 })
