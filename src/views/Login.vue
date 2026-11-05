@@ -127,11 +127,17 @@ const handleLogin = async () => {
     if (res.code === 200) {
       const userData = res.data.user
       const token = res.data.token
+      const refreshToken = res.data.refreshToken // 🛑【核心新增】获取双 Token 中的 Refresh Token
 
       ElMessage.success('登录成功！欢迎你，' + userData.name)
 
       localStorage.setItem('loginUser', JSON.stringify(userData))
       localStorage.setItem('token', token)
+      
+      // 🛑【核心新增】将 Refresh Token 存入本地
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken)
+      }
 
       // 🛑【核心修复】判断是否需要强制改密
       if (userData.mustChangePassword) {

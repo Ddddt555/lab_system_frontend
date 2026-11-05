@@ -83,6 +83,8 @@ import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { WsClient } from '../utils/ws'
+// 🛑【核心改造】引入统一的窗口大小监听 Hook
+import { useWindowSize } from '../composables/useWindowSize'
 
 // 【引入所有的独立组件】
 import UpdatePasswordDialog from '../components/UpdatePasswordDialog.vue'
@@ -99,9 +101,9 @@ const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const currentStudentNo = loginUser ? loginUser.userNo : ''
 if (!currentStudentNo) router.push('/')
 
-const screenWidth = ref(window.innerWidth)
-const isMobile = computed(() => screenWidth.value < 768)
-const handleResize = () => { screenWidth.value = window.innerWidth }
+// 🛑【核心改造】使用 Hook 监听窗口变化
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 
 const activeTab = ref('select-class')
 
@@ -130,7 +132,7 @@ const bookingPanelRef = ref(null)
 let globalWs = null
 
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
+  // 🛑【核心改造】移除了原来的 window.addEventListener
   fetchNotices()
   initGlobalWebSocket()
   
@@ -141,7 +143,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
+  // 🛑【核心改造】移除了原来的 window.removeEventListener
   if (globalWs) globalWs.close()
 })
 
@@ -150,9 +152,9 @@ const initGlobalWebSocket = async () => {
   const urlProvider = async () => {
     const res = await request.get('/ws-ticket')
     if (res.code !== 200) throw new Error('获取WS凭证失败')
-    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host 
-    return `${protocol}${host}/ws/global?ticket=${res.data}`
+    return `${protocol}//${host}/ws/global?ticket=${res.data}`
   }
 
   globalWs = new WsClient(urlProvider)
@@ -221,21 +223,21 @@ const fetchNotices = async () => {
   try {
     const res = await request.get('/notice/list')
     if (res.code === 200) {
-      noticeList.value = res.data
-      if (noticeList.value.length > 0) {
-        const latestTime = new Date(noticeList.value[0].createTime).getTime()
-        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
-        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
-        hasUnread.value = latestTime > lastReadTime
-      }
+      // 🛑【核心改造】适配后端新的返回结构 { list: [], unreadCount: 0 }
+      noticeList.value = res.data.list
+      hasUnread.value = res.data.unreadCount > 0
     }
   } catch (e) {}
 }
 
 const openNoticeDrawer = () => {
   noticeDrawerVisible.value = true
-  hasUnread.value = false
-  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime)
+  // 🛑【核心改造】不再使用 localStorage，而是通知后端标记已读
+  if (hasUnread.value) {
+    request.post('/notice/mark-read').then(() => {
+      hasUnread.value = false
+    })
+  }
 }
 
 const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
@@ -249,6 +251,7 @@ const logout = async () => {
     if (globalWs) globalWs.close()
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken') // 🛑【核心修复】清理刷新令牌
     router.push('/')
   }
 }

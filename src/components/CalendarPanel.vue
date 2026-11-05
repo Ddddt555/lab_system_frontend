@@ -125,4 +125,33 @@ defineExpose({ refresh: fetchCalendarData })
   color: #909399;
   font-size: 11px;
 }
+
+/* 🛑【核心修复】移动端适配 */
+@media screen and (max-width: 768px) {
+  .calendar-header, .calendar-row {
+    min-width: 100%; /* 取消最小宽度限制，让表格自适应屏幕 */
+  }
+  .time-col {
+    width: 50px; /* 缩窄节次列 */
+    font-size: 12px;
+    padding: 5px 0;
+  }
+  .day-col {
+    font-size: 12px;
+    padding: 5px 0;
+  }
+  .cell {
+    height: 60px; /* 降低单元格高度 */
+    padding: 2px;
+  }
+  .course-block {
+    padding: 2px;
+    font-size: 10px;
+    margin-bottom: 2px;
+    border-left-width: 2px;
+  }
+  .course-room {
+    display: none; /* 手机端隐藏教师姓名，节省空间 */
+  }
+}
 </style>

@@ -81,6 +81,8 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
+// 🛑【核心改造】引入统一的窗口大小监听 Hook
+import { useWindowSize } from '../composables/useWindowSize'
 
 // 🛑【引入所有子组件】🛑
 import TeacherSessionPanel from '../components/TeacherSessionPanel.vue'
@@ -97,7 +99,10 @@ const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const workNo = loginUser ? loginUser.userNo : ''
 if (!workNo) router.push('/')
 
-const isMobile = computed(() => window.innerWidth < 768)
+// 🛑【核心改造】使用 Hook 监听窗口变化
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
+
 const activeTab = ref('sessions')
 
 const pwdDialog = ref(false)
@@ -129,21 +134,21 @@ const fetchNotices = async () => {
   try {
     const res = await request.get('/notice/list')
     if (res.code === 200) {
-      noticeList.value = res.data
-      if (noticeList.value.length > 0) {
-        const latestTime = new Date(noticeList.value[0].createTime).getTime()
-        const lastReadStr = localStorage.getItem('lastReadNoticeTime')
-        const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0
-        hasUnread.value = latestTime > lastReadTime
-      }
+      // 🛑【核心改造】适配后端新的返回结构 { list: [], unreadCount: 0 }
+      noticeList.value = res.data.list
+      hasUnread.value = res.data.unreadCount > 0
     }
   } catch (e) {}
 }
 
 const openNoticeDrawer = () => { 
   noticeDrawerVisible.value = true
-  hasUnread.value = false 
-  if (noticeList.value.length > 0) localStorage.setItem('lastReadNoticeTime', noticeList.value[0].createTime) 
+  // 🛑【核心改造】不再使用 localStorage，而是通知后端标记已读
+  if (hasUnread.value) {
+    request.post('/notice/mark-read').then(() => {
+      hasUnread.value = false
+    })
+  }
 }
 
 const openPublishDialog = () => { noticeForm.value = { title: '', content: '' }; publishDialogVisible.value = true }
@@ -179,6 +184,7 @@ const logout = async () => {
   } finally {
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken') // 🛑【核心修复】清理刷新令牌
     router.push('/')
   }
 }

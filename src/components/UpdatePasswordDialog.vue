@@ -19,7 +19,8 @@
         <el-input v-model="pwdForm.oldPassword" type="password" show-password />
       </el-form-item>
       <el-form-item label="新密码" required>
-        <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少 6 位" />
+        <!-- 🛑 修改了 placeholder 提示 -->
+        <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少 8 位，含大小写、数字、特殊字符" />
       </el-form-item>
       <el-form-item label="确认密码" required>
         <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
@@ -82,7 +83,14 @@ const submitPwd = async () => {
   const { oldPassword, newPassword, confirmPassword } = pwdForm.value
   if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
   if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
-  if (newPassword.length < 6) return ElMessage.warning('新密码长度不能少于 6 位！')
+  
+  // 🛑【核心修复】与后端 PasswordValidator 完全对齐的强密码校验
+  if (newPassword.length < 8) return ElMessage.warning('密码长度不能少于 8 位！')
+  
+  const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/
+  if (!pwdRegex.test(newPassword)) {
+    return ElMessage.warning('密码必须包含大写字母、小写字母、数字和特殊字符（如 @$!%*?&._-）！')
+  }
 
   loading.value = true
   try {
@@ -100,6 +108,9 @@ const submitPwd = async () => {
       // 强制登出重新登录
       localStorage.removeItem('loginUser')
       localStorage.removeItem('token')
+      // 🛑【顺手修复】登出时清理 refreshToken
+      localStorage.removeItem('refreshToken')
+      
       setTimeout(() => {
         router.push('/')
       }, 1000)

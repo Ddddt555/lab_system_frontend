@@ -61,10 +61,15 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
+// 🛑【核心改造】引入统一的窗口大小监听 Hook
+import { useWindowSize } from '../composables/useWindowSize'
 
 const emit = defineEmits(['refresh-logs']) // 通知父组件刷新操作日志
 
-const isMobile = computed(() => window.innerWidth < 768)
+// 🛑【核心改造】使用 Hook 监听窗口变化
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
+
 const loading = ref(false)
 const studentList = ref([])
 const totalStudents = ref(0)
@@ -167,7 +172,17 @@ const handleImportExcel = async (file) => {
       headers: { 'Content-Type': 'multipart/form-data' } 
     })
     if (res.code === 200) {
-      ElMessage.success(res.data)
+      // 🛑 判断是否有失败的行
+      if (res.data.includes('失败：0 条')) {
+        ElMessage.success(res.data)
+      } else {
+        // 🛑 有失败行，用弹窗展示，并开启换行渲染
+        ElMessageBox.alert(res.data, '导入结果', {
+          confirmButtonText: '确定',
+          type: 'warning',
+          customStyle: { whiteSpace: 'pre-wrap', textAlign: 'left', maxHeight: '60vh', overflowY: 'auto' }
+        })
+      }
       fetchStudents() 
       fetchAllAdminClasses()
       emit('refresh-logs')
