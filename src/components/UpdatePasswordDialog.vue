@@ -1,26 +1,31 @@
 ﻿<template>
   <!-- 🛑 当 forced 为 true 时，不显示右上角关闭按钮，并且点击遮罩层也不关闭 -->
-  <el-dialog 
-    v-model="visible" 
-    title="修改密码" 
-    :width="isMobile ? '90%' : '400px'" 
-    :close-on-click-modal="false" 
-    :close-on-press-escape="false" 
+  <el-dialog
+    v-model="visible"
+    title="修改密码"
+    :width="isMobile ? '90%' : '400px'"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
     :show-close="!props.forced"
     @close="closeDialog"
   >
     <!-- 🛑 强制改密时的顶部警告提示 -->
-    <div v-if="props.forced" style="margin-bottom: 15px; color: #F56C6C; font-size: 13px;">
+    <div v-if="props.forced" style="margin-bottom: 15px; color: #f56c6c; font-size: 13px">
       ⚠️ 系统检测到您的密码为初始密码或已被重置，必须修改后才能继续使用系统！
     </div>
-    
+
     <el-form :model="pwdForm" label-width="80px">
       <el-form-item label="原密码" required>
         <el-input v-model="pwdForm.oldPassword" type="password" show-password />
       </el-form-item>
       <el-form-item label="新密码" required>
         <!-- 🛑 修改了 placeholder 提示 -->
-        <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少 8 位，含大小写、数字、特殊字符" />
+        <el-input
+          v-model="pwdForm.newPassword"
+          type="password"
+          show-password
+          placeholder="至少 8 位，含大小写、数字、特殊字符"
+        />
       </el-form-item>
       <el-form-item label="确认密码" required>
         <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
@@ -85,10 +90,10 @@ const submitPwd = async () => {
   const { oldPassword, newPassword, confirmPassword } = pwdForm.value
   if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
   if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
-  
+
   // 🛑【核心修复】与后端 PasswordValidator 完全对齐的强密码校验
   if (newPassword.length < 8) return ElMessage.warning('密码长度不能少于 8 位！')
-  
+
   const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/
   if (!pwdRegex.test(newPassword)) {
     return ElMessage.warning('密码必须包含大写字母、小写字母、数字和特殊字符（如 @$!%*?&._-）！')
@@ -98,12 +103,13 @@ const submitPwd = async () => {
   try {
     // 根据角色动态拼接接口，如果是教师端直接传 role='teacher' 进来即可复用
     const url = props.role === 'admin' ? '/admin/update-password' : `/${props.role}/update-password`
-    const params = props.role === 'admin' 
-        ? { oldPassword, newPassword } 
+    const params =
+      props.role === 'admin'
+        ? { oldPassword, newPassword }
         : { oldPwd: oldPassword, newPwd: newPassword }
 
     const res = await request.post(url, null, { params })
-    
+
     if (res.code === 200) {
       ElMessage.success('修改成功，请重新登录！')
       visible.value = false
@@ -112,7 +118,7 @@ const submitPwd = async () => {
       localStorage.removeItem('token')
       // 🛑【顺手修复】登出时清理 refreshToken
       localStorage.removeItem('refreshToken')
-      
+
       setTimeout(() => {
         router.push('/')
       }, 1000)

@@ -3,21 +3,28 @@
     <div class="header">
       <h2>实验教学管理系统 - 教师端（欢迎你，{{ loginUser ? loginUser.name : '' }}）</h2>
       <div class="header-actions">
-        <el-badge :is-dot="hasUnread" style="margin-right: 15px; cursor: pointer;" @click="openNoticeDrawer">
+        <el-badge
+          :is-dot="hasUnread"
+          style="margin-right: 15px; cursor: pointer"
+          @click="openNoticeDrawer"
+        >
           <el-icon :size="22" color="#409EFF"><Bell /></el-icon>
         </el-badge>
-        <el-button type="primary" size="small" @click="openPublishDialog" style="margin-right: 10px;">发布通知</el-button>
-        <el-button type="warning" size="small" @click="pwdDialog = true" style="margin-right: 10px;">修改密码</el-button>
+        <el-button type="primary" size="small" style="margin-right: 10px" @click="openPublishDialog"
+          >发布通知</el-button
+        >
+        <el-button type="warning" size="small" style="margin-right: 10px" @click="pwdDialog = true"
+          >修改密码</el-button
+        >
         <el-button type="danger" size="small" @click="logout">退出登录</el-button>
       </div>
     </div>
 
     <div class="main-content">
       <el-tabs v-model="activeTab">
-
         <el-tab-pane label="我负责的场次" name="sessions">
-          <TeacherSessionPanel 
-            v-if="activeTab === 'sessions'" 
+          <TeacherSessionPanel
+            v-if="activeTab === 'sessions'"
             @start-attendance="handleStartAttendance"
             @grade-report="handleGradeReport"
           />
@@ -43,12 +50,20 @@
 
     <!-- 公共弹窗 -->
     <!-- 🛑 核心修复：传入 forced 属性 -->
-    <UpdatePasswordDialog v-model="pwdDialog" role="teacher" :forced="loginUser?.mustChangePassword === true" />
+    <UpdatePasswordDialog
+      v-model="pwdDialog"
+      role="teacher"
+      :forced="loginUser?.mustChangePassword === true"
+    />
 
     <el-dialog v-model="publishDialogVisible" title="发布通知" :width="isMobile ? '95%' : '500px'">
       <el-form :model="noticeForm" label-width="80px">
-        <el-form-item label="通知标题" required><el-input v-model="noticeForm.title" /></el-form-item>
-        <el-form-item label="通知内容" required><el-input v-model="noticeForm.content" type="textarea" :rows="4" /></el-form-item>
+        <el-form-item label="通知标题" required
+          ><el-input v-model="noticeForm.title"
+        /></el-form-item>
+        <el-form-item label="通知内容" required
+          ><el-input v-model="noticeForm.content" type="textarea" :rows="4"
+        /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="publishDialogVisible = false">取消</el-button>
@@ -57,17 +72,26 @@
     </el-dialog>
 
     <!-- 🛑【独立业务弹窗】🛑 -->
-    <AttendanceDialog v-model="attendanceDialogVisible" :sessionNo="currentSessionNo" />
-    <GradeReportDialog v-model="gradeDialogVisible" :projectNo="currentProjectNo" />
+    <AttendanceDialog v-model="attendanceDialogVisible" :session-no="currentSessionNo" />
+    <GradeReportDialog v-model="gradeDialogVisible" :project-no="currentProjectNo" />
 
     <el-drawer v-model="noticeDrawerVisible" title="系统通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
-        <el-timeline-item v-for="item in noticeList" :key="item.noticeId" :timestamp="formatTime(item.createTime)" placement="top">
+        <el-timeline-item
+          v-for="item in noticeList"
+          :key="item.noticeId"
+          :timestamp="formatTime(item.createTime)"
+          placement="top"
+        >
           <el-card shadow="hover">
-            <h4 style="margin: 0 0 10px 0; color: #333;">{{ item.title }}</h4>
-            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">{{ item.content }}</p>
-            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999;">发布人：{{ item.publisherName }}</div>
+            <h4 style="margin: 0 0 10px 0; color: #333">{{ item.title }}</h4>
+            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5">
+              {{ item.content }}
+            </p>
+            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999">
+              发布人：{{ item.publisherName }}
+            </div>
           </el-card>
         </el-timeline-item>
       </el-timeline>
@@ -123,7 +147,7 @@ const currentProjectNo = ref('')
 
 onMounted(() => {
   fetchNotices()
-  
+
   // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
   if (loginUser && loginUser.mustChangePassword) {
     pwdDialog.value = true
@@ -141,7 +165,7 @@ const fetchNotices = async () => {
   } catch (e) {}
 }
 
-const openNoticeDrawer = () => { 
+const openNoticeDrawer = () => {
   noticeDrawerVisible.value = true
   // 🛑【核心改造】不再使用 localStorage，而是通知后端标记已读
   if (hasUnread.value) {
@@ -151,17 +175,32 @@ const openNoticeDrawer = () => {
   }
 }
 
-const openPublishDialog = () => { noticeForm.value = { title: '', content: '' }; publishDialogVisible.value = true }
+const openPublishDialog = () => {
+  noticeForm.value = { title: '', content: '' }
+  publishDialogVisible.value = true
+}
 
 const submitPublish = async () => {
-  if (!noticeForm.value.title || !noticeForm.value.content) return ElMessage.warning('标题和内容不能为空')
+  if (!noticeForm.value.title || !noticeForm.value.content)
+    return ElMessage.warning('标题和内容不能为空')
   try {
     const res = await request.post('/notice/publish', null, {
-      params: { title: noticeForm.value.title, content: noticeForm.value.content, targetRole: 'student' }
+      params: {
+        title: noticeForm.value.title,
+        content: noticeForm.value.content,
+        targetRole: 'student'
+      }
     })
-    if (res.code === 200) { ElMessage.success('通知发布成功！'); publishDialogVisible.value = false; fetchNotices() }
-    else { ElMessage.error(res.msg) }
-  } catch (e) { ElMessage.error('发布失败') }
+    if (res.code === 200) {
+      ElMessage.success('通知发布成功！')
+      publishDialogVisible.value = false
+      fetchNotices()
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    ElMessage.error('发布失败')
+  }
 }
 
 const handleStartAttendance = (session) => {
@@ -174,7 +213,7 @@ const handleGradeReport = (session) => {
   gradeDialogVisible.value = true
 }
 
-const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
+const formatTime = (timeStr) => (timeStr ? timeStr.replace('T', ' ').substring(0, 16) : '')
 
 const logout = async () => {
   try {
@@ -191,16 +230,58 @@ const logout = async () => {
 </script>
 
 <style scoped>
-.home-container { min-height: 100vh; background-color: #f5f7fa; }
-.header { background-color: #fff; height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-.header h2 { margin: 0; color: #333; }
-.main-content { padding: 40px; max-width: 1300px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1); margin-top: 20px;}
+.home-container {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+.header {
+  background-color: #fff;
+  height: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.header h2 {
+  margin: 0;
+  color: #333;
+}
+.main-content {
+  padding: 40px;
+  max-width: 1300px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
 
 @media screen and (max-width: 768px) {
-  .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }
-  .header h2 { font-size: 16px; }
-  .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 10px;}
-  .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }
-  .el-tabs__nav-wrap::after { display: none; }
+  .header {
+    padding: 10px 15px;
+    height: auto;
+    min-height: 60px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .header h2 {
+    font-size: 16px;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .main-content {
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 0;
+  }
+  .el-tabs__nav-wrap::after {
+    display: none;
+  }
 }
 </style>

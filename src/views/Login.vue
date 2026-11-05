@@ -11,12 +11,7 @@
       </el-radio-group>
 
       <!-- 账号输入框 -->
-      <el-input
-        v-model="username"
-        placeholder="请输入账号"
-        size="large"
-        class="input-item"
-      />
+      <el-input v-model="username" placeholder="请输入账号" size="large" class="input-item" />
 
       <!-- 密码输入框 -->
       <el-input
@@ -40,10 +35,10 @@
         />
         <img
           :src="captchaImage"
-          @click="fetchCaptcha"
           class="captcha-img"
           title="点击刷新验证码"
           alt="验证码"
+          @click="fetchCaptcha"
         />
       </div>
 
@@ -52,8 +47,8 @@
         type="primary"
         size="large"
         class="login-btn"
-        @click="handleLogin"
         :loading="loading"
+        @click="handleLogin"
       >
         登 录
       </el-button>
@@ -133,7 +128,7 @@ const handleLogin = async () => {
 
       localStorage.setItem('loginUser', JSON.stringify(userData))
       localStorage.setItem('token', token)
-      
+
       // 🛑【核心新增】将 Refresh Token 存入本地
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken)

@@ -2,18 +2,23 @@
   <div class="home-container">
     <div class="header">
       <h2>实验教学管理系统 - 学生端（欢迎你，{{ loginUser ? loginUser.name : '' }}）</h2>
-      <div style="display: flex; align-items: center;">
-        <el-badge :is-dot="hasUnread" style="margin-right: 20px; cursor: pointer;" @click="openNoticeDrawer">
+      <div style="display: flex; align-items: center">
+        <el-badge
+          :is-dot="hasUnread"
+          style="margin-right: 20px; cursor: pointer"
+          @click="openNoticeDrawer"
+        >
           <el-icon :size="22" color="#409EFF"><Bell /></el-icon>
         </el-badge>
-        <el-button type="warning" size="small" @click="pwdDialog = true" style="margin-right: 15px;">修改密码</el-button>
+        <el-button type="warning" size="small" style="margin-right: 15px" @click="pwdDialog = true"
+          >修改密码</el-button
+        >
         <el-button type="danger" size="small" @click="logout">退出登录</el-button>
       </div>
     </div>
 
     <div class="main-content">
       <el-tabs v-model="activeTab" class="demo-tabs" @tab-change="handleTabChange">
-
         <el-tab-pane label="选课中心" name="select-class">
           <SelectClassPanel v-if="activeTab === 'select-class'" />
         </el-tab-pane>
@@ -27,8 +32,8 @@
         </el-tab-pane>
 
         <el-tab-pane label="我的预约记录" name="my-bookings">
-          <MyBookingPanel 
-            v-if="activeTab === 'my-bookings'" 
+          <MyBookingPanel
+            v-if="activeTab === 'my-bookings'"
             ref="bookingPanelRef"
             @upload="openUploadDialog"
             @history="openHistory"
@@ -40,35 +45,46 @@
     </div>
 
     <!-- 弹窗群 -->
-    <UploadReportDialog 
-      v-model="uploadDialogVisible" 
-      :projectNo="selectedProjectNo" 
-      :projectName="selectedProjectName" 
-      @success="onUploadSuccess" 
+    <UploadReportDialog
+      v-model="uploadDialogVisible"
+      :project-no="selectedProjectNo"
+      :project-name="selectedProjectName"
+      @success="onUploadSuccess"
     />
 
-    <ReportHistoryDialog 
-      v-model="historyDialogVisible" 
-      :projectNo="historyProjectNo" 
-    />
+    <ReportHistoryDialog v-model="historyDialogVisible" :project-no="historyProjectNo" />
 
     <!-- 🛑 核心修复：传入 forced 属性 -->
-    <UpdatePasswordDialog v-model="pwdDialog" role="student" :forced="loginUser?.mustChangePassword === true" />
+    <UpdatePasswordDialog
+      v-model="pwdDialog"
+      role="student"
+      :forced="loginUser?.mustChangePassword === true"
+    />
 
-    <SignInDialog 
+    <SignInDialog
       v-model="signDialogVisible"
-      :sessionNo="signSessionNo"
-      :projectName="signProjectName"
+      :session-no="signSessionNo"
+      :project-name="signProjectName"
     />
 
     <el-drawer v-model="noticeDrawerVisible" title="我的通知" :size="isMobile ? '100%' : '400px'">
       <el-empty v-if="noticeList.length === 0" description="暂无通知" />
       <el-timeline v-else>
-        <el-timeline-item v-for="item in noticeList" :key="item.noticeId" :timestamp="formatTime(item.createTime)" placement="top" :type="item.publisherName === '管理员' ? 'danger' : 'primary'">
+        <el-timeline-item
+          v-for="item in noticeList"
+          :key="item.noticeId"
+          :timestamp="formatTime(item.createTime)"
+          placement="top"
+          :type="item.publisherName === '管理员' ? 'danger' : 'primary'"
+        >
           <el-card shadow="hover">
-            <h4 style="margin: 0 0 10px 0; color: #333;">{{ item.title }}</h4>
-            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">{{ item.content }}</p>
-            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999;">发布人：{{ item.publisherName }}</div>
+            <h4 style="margin: 0 0 10px 0; color: #333">{{ item.title }}</h4>
+            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5">
+              {{ item.content }}
+            </p>
+            <div style="margin-top: 10px; text-align: right; font-size: 12px; color: #999">
+              发布人：{{ item.publisherName }}
+            </div>
           </el-card>
         </el-timeline-item>
       </el-timeline>
@@ -135,7 +151,7 @@ onMounted(() => {
   // 🛑【核心改造】移除了原来的 window.addEventListener
   fetchNotices()
   initGlobalWebSocket()
-  
+
   // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
   if (loginUser && loginUser.mustChangePassword) {
     pwdDialog.value = true
@@ -153,7 +169,7 @@ const initGlobalWebSocket = async () => {
     const res = await request.get('/ws-ticket')
     if (res.code !== 200) throw new Error('获取WS凭证失败')
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host 
+    const host = window.location.host
     return `${protocol}//${host}/ws/global?ticket=${res.data}`
   }
 
@@ -161,12 +177,12 @@ const initGlobalWebSocket = async () => {
   globalWs.onMessageCallback = (msg) => {
     try {
       const data = JSON.parse(msg)
-      
+
       if (data.type === 'NEW_NOTICE') {
-        fetchNotices() 
+        fetchNotices()
         ElMessage({ type: 'warning', message: '您有一条新的未读通知！' })
       }
-      
+
       if (data.type === 'SEAT_UPDATE') {
         if (sessionPanelRef.value) {
           sessionPanelRef.value.updateSeats(data.sessionNo, data.seats)
@@ -174,8 +190,8 @@ const initGlobalWebSocket = async () => {
       }
 
       if (data.type === 'WAITLIST_SUCCESS') {
-        ElMessage({ 
-          type: 'success', 
+        ElMessage({
+          type: 'success',
           message: data.message || '恭喜！您的候补已成功，系统已为您自动预约！',
           duration: 5000,
           showClose: true
@@ -240,7 +256,7 @@ const openNoticeDrawer = () => {
   }
 }
 
-const formatTime = (timeStr) => timeStr ? timeStr.replace('T', ' ').substring(0, 16) : ''
+const formatTime = (timeStr) => (timeStr ? timeStr.replace('T', ' ').substring(0, 16) : '')
 
 const logout = async () => {
   try {
@@ -258,17 +274,60 @@ const logout = async () => {
 </script>
 
 <style scoped>
-.home-container { min-height: 100vh; background-color: #f5f7fa; }
-.header { background-color: #fff; height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-.header h2 { margin: 0; color: #333; }
-.main-content { padding: 40px; max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); margin-top: 20px;}
+.home-container {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+.header {
+  background-color: #fff;
+  height: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.header h2 {
+  margin: 0;
+  color: #333;
+}
+.main-content {
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
 
 @media screen and (max-width: 768px) {
-  .header { padding: 10px 15px; height: auto; min-height: 60px; flex-direction: column; align-items: flex-start; gap: 10px; }
-  .header h2 { font-size: 16px; }
-  .header > div { width: 100%; justify-content: flex-end; }
-  .main-content { padding: 15px; margin-top: 10px; border-radius: 0; }
-  .el-tabs__nav-wrap::after { display: none; }
-  .el-pagination { justify-content: center !important; flex-wrap: wrap; }
+  .header {
+    padding: 10px 15px;
+    height: auto;
+    min-height: 60px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .header h2 {
+    font-size: 16px;
+  }
+  .header > div {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .main-content {
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 0;
+  }
+  .el-tabs__nav-wrap::after {
+    display: none;
+  }
+  .el-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap;
+  }
 }
 </style>

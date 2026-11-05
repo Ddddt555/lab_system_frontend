@@ -19,9 +19,9 @@ const routes = [
     component: () => import('../views/TeacherHome.vue'),
     meta: { role: 'teacher' } // ⚠️ 核心：标记必须是教师
   },
-  { 
-    path: '/admin-home', 
-    name: 'AdminHome', 
+  {
+    path: '/admin-home',
+    name: 'AdminHome',
     component: () => import('../views/AdminHome.vue'),
     meta: { role: 'admin' } // ⚠️ 核心：标记必须是管理员
   }
@@ -63,7 +63,7 @@ router.beforeEach((to, from, next) => {
   // 如果目标路由需要角色要求，并且当前用户的角色不匹配
   if (requiredRole && user.role !== requiredRole) {
     ElMessage.error('非法访问：您没有权限进入该页面！')
-    
+
     // 把他“押送”回属于他自己的首页
     if (user.role === 'student') return next('/student-home')
     if (user.role === 'teacher') return next('/teacher-home')

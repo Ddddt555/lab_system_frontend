@@ -1,17 +1,21 @@
 <template>
-  <div class="calendar-container" v-loading="calendarLoading">
+  <div v-loading="calendarLoading" class="calendar-container">
     <div class="calendar-header">
       <div class="time-col">节次</div>
       <div v-for="day in 7" :key="day" class="day-col">
-        {{ ['周一','周二','周三','周四','周五','周六','周日'][day-1] }}
+        {{ ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][day - 1] }}
       </div>
     </div>
     <div class="calendar-body">
-      <div v-for="period in ['1-2节', '3-4节', '5-6节', '7-8节', '9-10节']" :key="period" class="calendar-row">
+      <div
+        v-for="period in ['1-2节', '3-4节', '5-6节', '7-8节', '9-10节']"
+        :key="period"
+        class="calendar-row"
+      >
         <div class="time-col">{{ period }}</div>
         <div v-for="day in 7" :key="day" class="day-col cell">
-          <div 
-            v-for="course in getCoursesByTime(period, day)" 
+          <div
+            v-for="course in getCoursesByTime(period, day)"
             :key="course.sessionNo"
             class="course-block"
           >
@@ -25,14 +29,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted} from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 
 const calendarLoading = ref(false)
 const calendarEvents = ref([])
 
-onMounted(() => { fetchCalendarData() })
+onMounted(() => {
+  fetchCalendarData()
+})
 
 const fetchCalendarData = async () => {
   calendarLoading.value = true
@@ -49,9 +55,7 @@ const fetchCalendarData = async () => {
 }
 
 const getCoursesByTime = (period, day) => {
-  return calendarEvents.value.filter(item => 
-    item.period === period && item.dayOfWeek === day
-  )
+  return calendarEvents.value.filter((item) => item.period === period && item.dayOfWeek === day)
 }
 
 defineExpose({ refresh: fetchCalendarData })
@@ -64,7 +68,8 @@ defineExpose({ refresh: fetchCalendarData })
   overflow-x: auto;
   margin-top: 10px;
 }
-.calendar-header, .calendar-row {
+.calendar-header,
+.calendar-row {
   display: flex;
   min-width: 800px;
 }
@@ -100,7 +105,7 @@ defineExpose({ refresh: fetchCalendarData })
 }
 .course-block {
   background-color: #ecf5ff;
-  border-left: 3px solid #409EFF;
+  border-left: 3px solid #409eff;
   padding: 5px;
   border-radius: 4px;
   font-size: 12px;
@@ -128,7 +133,8 @@ defineExpose({ refresh: fetchCalendarData })
 
 /* 🛑【核心修复】移动端适配 */
 @media screen and (max-width: 768px) {
-  .calendar-header, .calendar-row {
+  .calendar-header,
+  .calendar-row {
     min-width: 100%; /* 取消最小宽度限制，让表格自适应屏幕 */
   }
   .time-col {

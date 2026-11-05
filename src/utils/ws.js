@@ -39,7 +39,7 @@ export class WsClient {
       this.ws.onclose = (e) => {
         console.log('🔌 WebSocket 已断开', e.reason)
         this.stopHeartbeat()
-        
+
         if (!this.isManualClose) {
           // 🛑【警告：重连延迟严禁改为 0 或极小值】🛑
           // 立即重连可能导致 cpolar 瞬间涌入大量请求导致隧道崩溃。3秒是安全缓冲。
