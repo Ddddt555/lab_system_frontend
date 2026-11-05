@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="session-list-panel">
     <el-table v-if="!isMobile" :data="sessionList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
@@ -68,12 +68,14 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 import { previewFile, downloadFile } from '../utils/file'
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const sessionList = ref([])
 const sessionPage = ref(1)

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="select-class-panel">
     <!-- 桌面端表格 -->
     <el-table v-if="!isMobile" :data="availableClasses" border style="width: 100%" v-loading="loading">
@@ -55,12 +55,14 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
 
 // 该组件独立维护自己的数据，不干扰外面
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const availableClasses = ref([])
 const classPage = ref(1)

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="my-booking-panel">
     <el-table v-if="!isMobile" :data="myBookingList" border style="width: 100%" v-loading="bookingLoading">
       <el-table-column prop="sessionNo" label="场次号" width="100" align="center" />
@@ -78,6 +78,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed} from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
@@ -85,7 +86,8 @@ import { previewFile, downloadFile } from '../utils/file'
 
 const emit = defineEmits(['upload', 'history', 'sign', 'cancel-success'])
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const bookingLoading = ref(false)
 const myBookingList = ref([])
 const bookingPage = ref(1)

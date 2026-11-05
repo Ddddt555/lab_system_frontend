@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- 🛑 当 forced 为 true 时，不显示右上角关闭按钮，并且点击遮罩层也不关闭 -->
   <el-dialog 
     v-model="visible" 
@@ -35,6 +35,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
@@ -67,7 +68,8 @@ const visible = computed({
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
 // 移动端适配（简单获取屏幕宽度）
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 
 const closeDialog = () => {
   // 🛑 如果是强制模式，禁止关闭

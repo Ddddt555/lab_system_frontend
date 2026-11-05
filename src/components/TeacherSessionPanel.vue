@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="teacher-session-panel">
     <div class="table-responsive">
       <el-table :data="sessionList" border style="width: 100%" v-loading="loading">
@@ -39,13 +39,15 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 
 const emit = defineEmits(['start-attendance', 'grade-report'])
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const sessionList = ref([])
 const sessionPage = ref(1)

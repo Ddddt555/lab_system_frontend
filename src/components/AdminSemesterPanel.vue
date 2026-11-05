@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="admin-semester-panel">
     <div style="margin-bottom: 15px;"><el-button type="primary" @click="openAddSemester">新增学期配置</el-button></div>
     <div class="table-responsive">
@@ -25,12 +25,14 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
 
 const emit = defineEmits(['refresh-logs'])
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const semesterList = ref([])
 const totalSemesters = ref(0)

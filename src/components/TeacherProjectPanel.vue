@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="teacher-project-panel">
     <div style="margin-bottom: 15px;">
       <el-button type="primary" @click="openAddProject">发布新实验项目</el-button>
@@ -41,11 +41,13 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const projectList = ref([])
 const projectPage = ref(1)

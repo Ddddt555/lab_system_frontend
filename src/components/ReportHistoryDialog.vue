@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-dialog v-model="visible" title="实验报告历史版本" :width="isMobile ? '95%' : '700px'">
     <el-table :data="historyList" border style="width: 100%" v-loading="loading">
       <el-table-column prop="version" label="版本" width="80" align="center">
@@ -21,6 +21,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, computed, watch } from 'vue'
 import request from '../utils/request'
 import { previewFile, downloadFile } from '../utils/file' // 🛑 引入刚才抽离的工具类
@@ -37,7 +38,8 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const historyList = ref([])
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-dialog v-model="visible" title="课堂签到" :width="isMobile ? '90%' : '400px'" center @close="closeDialog">
     <div style="text-align: center; margin-bottom: 20px;">
       <p style="color: #666;">正在为 <strong style="color: #409EFF;">{{ projectName }}</strong> 签到</p>
@@ -18,6 +18,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
@@ -35,7 +36,8 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const signCode = ref('')
 const signing = ref(false)
 

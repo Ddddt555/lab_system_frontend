@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-dialog v-model="visible" title="实验报告批阅" :width="isMobile ? '95%' : '80%'" @close="closeDialog">
     <div class="table-responsive">
       <el-table :data="reportList" border style="width: 100%" v-loading="loading">
@@ -25,6 +25,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
@@ -41,7 +42,8 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const reportList = ref([])
 

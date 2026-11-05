@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="teacher-score-panel">
     <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
       <el-select v-model="selectedClassNo" placeholder="请选择教学班" :style="{ width: isMobile ? '100%' : '300px' }" @change="handleClassChange">
@@ -49,11 +49,13 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 
 const scoreList = ref([])

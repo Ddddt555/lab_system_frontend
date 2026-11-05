@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-dialog v-model="visible" title="课堂考勤签到" :width="isMobile ? '90%' : '600px'" center @close="closeWebSocket">
     <div style="text-align: center; margin-bottom: 20px;">
       <p style="color: #666; font-size: 15px; margin-bottom: 15px;">请学生打开学生端，输入以下 6 位数字进行签到</p>
@@ -23,6 +23,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
@@ -39,7 +40,8 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const attendanceCode = ref('')
 const attendanceList = ref([])
 let wsClient = null

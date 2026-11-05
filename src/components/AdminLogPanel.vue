@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="admin-log-panel">
     <div class="table-responsive">
       <el-table :data="logList" border style="width: 100%" v-loading="loading">
@@ -56,10 +56,12 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed, defineExpose } from 'vue'
 import request from '../utils/request'
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const logList = ref([])
 const totalLogs = ref(0)

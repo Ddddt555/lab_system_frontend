@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="teacher-schedule-panel">
     <div style="margin-bottom: 15px;">
       <el-button type="primary" @click="openAddSession">安排新场次</el-button>
@@ -61,13 +61,15 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
 
 const emit = defineEmits(['success']) // 通知父组件刷新或其他操作
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const loading = ref(false)
 const sessionList = ref([])
 const sessionPage = ref(1)

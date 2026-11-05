@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <el-dialog v-model="visible" title="上传实验报告" :width="isMobile ? '90%' : '400px'" @close="closeDialog">
     <div style="text-align: center;">
       <p>正在为 <strong>{{ projectName }}</strong> 提交报告</p>
@@ -17,6 +17,7 @@
 </template>
 
 <script setup>
+import { useWindowSize } from '../composables/useWindowSize'
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
@@ -35,7 +36,8 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val)
 })
 
-const isMobile = computed(() => window.innerWidth < 768)
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
 const uploading = ref(false)
 const uploadFile = ref(null)
 
