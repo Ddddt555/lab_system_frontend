@@ -55,7 +55,7 @@ request.interceptors.response.use(
                 },
                 // 【修复】必须保留 reject：否则刷新失败时这些 Promise 永远不结算，
                 // 调用方的 finally 不会执行，页面会一直卡在 loading 状态。
-                reject,
+                reject
               })
             })
           }
