@@ -47,10 +47,15 @@ request.interceptors.response.use(
 
           // 1. 如果正在刷新中，把当前请求挂起，推入队列
           if (isRefreshing) {
-            return new Promise((resolve) => {
-              requestsQueue.push((newToken) => {
-                originalRequest.headers['Authorization'] = 'Bearer ' + newToken
-                resolve(request(originalRequest))
+            return new Promise((resolve, reject) => {
+              requestsQueue.push({
+                retry: (newToken) => {
+                  originalRequest.headers['Authorization'] = 'Bearer ' + newToken
+                  resolve(request(originalRequest))
+                },
+                // 【修复】必须保留 reject：否则刷新失败时这些 Promise 永远不结算，
+                // 调用方的 finally 不会执行，页面会一直卡在 loading 状态。
+                reject,
               })
             })
           }
@@ -62,7 +67,9 @@ request.interceptors.response.use(
           if (refreshToken) {
             return axios
               .post(
-                import.meta.env.VITE_API_BASE_URL + '/refresh-token?refreshToken=' + refreshToken
+                import.meta.env.VITE_API_BASE_URL + '/refresh-token',
+                // 【安全加固】Refresh Token 走请求体，不再拼到 URL 查询串里
+                { refreshToken }
               )
               .then((res) => {
                 if (res.data.code === 200) {
@@ -71,7 +78,7 @@ request.interceptors.response.use(
                   originalRequest.headers['Authorization'] = 'Bearer ' + newToken
 
                   // 🛑 刷新成功：执行队列中的所有请求
-                  requestsQueue.forEach((cb) => cb(newToken))
+                  requestsQueue.forEach((item) => item.retry(newToken))
                   requestsQueue = []
 
                   return request(originalRequest)
@@ -80,7 +87,8 @@ request.interceptors.response.use(
                 }
               })
               .catch((err) => {
-                // 🛑 刷新失败：清空队列，强制登出
+                // 🛑 刷新失败：先让所有挂起的请求以失败结束，再强制登出
+                requestsQueue.forEach((item) => item.reject(err))
                 requestsQueue = []
                 ElMessage.error('登录已彻底过期，请重新登录！')
                 localStorage.removeItem('loginUser')
