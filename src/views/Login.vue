@@ -61,6 +61,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
+import { getDeviceId } from '../utils/device' // 引入设备指纹获取方法
 
 const role = ref('student')
 const username = ref('')
@@ -115,26 +116,27 @@ const handleLogin = async () => {
         username: username.value,
         password: password.value,
         captchaKey: captchaKey.value,
-        captchaCode: captchaCode.value
+        captchaCode: captchaCode.value,
+        deviceId: getDeviceId() // 携带设备指纹
       }
     })
 
     if (res.code === 200) {
       const userData = res.data.user
       const token = res.data.token
-      const refreshToken = res.data.refreshToken // 🛑【核心新增】获取双 Token 中的 Refresh Token
+      const refreshToken = res.data.refreshToken
 
       ElMessage.success('登录成功！欢迎你，' + userData.name)
 
       localStorage.setItem('loginUser', JSON.stringify(userData))
       localStorage.setItem('token', token)
 
-      // 🛑【核心新增】将 Refresh Token 存入本地
+      // 将 Refresh Token 存入本地
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken)
       }
 
-      // 🛑【核心修复】判断是否需要强制改密
+      // 判断是否需要强制修改初始密码
       if (userData.mustChangePassword) {
         ElMessage({
           message: '您的密码为初始密码或已被重置，请先修改密码！',
@@ -142,7 +144,7 @@ const handleLogin = async () => {
           duration: 5000,
           showClose: true
         })
-        // 不需要跳转逻辑，直接去主页，主页的 onMounted 会检测并强制弹窗
+        // 路由跳转后，主页的 onMounted 会根据标记自动弹出修改密码弹窗
       }
 
       if (userData.role === 'student') {
