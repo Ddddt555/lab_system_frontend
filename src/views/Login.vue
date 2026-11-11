@@ -61,7 +61,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
-import { getDeviceId } from '../utils/device' // 引入设备指纹获取方法
+import { getDeviceId } from '../utils/device'
 
 const role = ref('student')
 const username = ref('')
@@ -111,14 +111,13 @@ const handleLogin = async () => {
       apiUrl = '/login/admin'
     }
 
-    const res = await request.post(apiUrl, null, {
-      params: {
-        username: username.value,
-        password: password.value,
-        captchaKey: captchaKey.value,
-        captchaCode: captchaCode.value,
-        deviceId: getDeviceId() // 携带设备指纹
-      }
+    // 修改为直接发送 JSON 对象，配合后端的 @RequestBody LoginDTO
+    const res = await request.post(apiUrl, {
+      username: username.value,
+      password: password.value,
+      captchaKey: captchaKey.value,
+      captchaCode: captchaCode.value,
+      deviceId: getDeviceId()
     })
 
     if (res.code === 200) {
@@ -131,12 +130,10 @@ const handleLogin = async () => {
       localStorage.setItem('loginUser', JSON.stringify(userData))
       localStorage.setItem('token', token)
 
-      // 将 Refresh Token 存入本地
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken)
       }
 
-      // 判断是否需要强制修改初始密码
       if (userData.mustChangePassword) {
         ElMessage({
           message: '您的密码为初始密码或已被重置，请先修改密码！',
@@ -144,7 +141,6 @@ const handleLogin = async () => {
           duration: 5000,
           showClose: true
         })
-        // 路由跳转后，主页的 onMounted 会根据标记自动弹出修改密码弹窗
       }
 
       if (userData.role === 'student') {
