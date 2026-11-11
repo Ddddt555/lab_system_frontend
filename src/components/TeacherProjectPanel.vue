@@ -24,6 +24,14 @@
             </el-upload>
           </template>
         </el-table-column>
+        <!-- 新增操作列 -->
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="scope">
+            <el-button type="danger" size="small" @click="deleteProject(scope.row.projectNo)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </div>
     <el-pagination
@@ -71,7 +79,8 @@
 <script setup>
 import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+// 注意这里引入了 ElMessageBox
+import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
 
 const { width } = useWindowSize()
@@ -136,6 +145,24 @@ const handleGuideUpload = async (file, projectNo) => {
     }
   } catch (error) {
     ElMessage.error('上传失败！')
+  }
+}
+
+// 新增删除项目逻辑
+const deleteProject = async (projectNo) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该实验项目吗？删除后不可恢复！', '警告', {
+      type: 'warning'
+    })
+    const res = await request.delete(`/teacher/project/delete?projectNo=${projectNo}`)
+    if (res.code === 200) {
+      ElMessage.success(res.data)
+      fetchProjects()
+    } else {
+      ElMessage.error(res.msg)
+    }
+  } catch (e) {
+    // 用户点击取消时，静默处理
   }
 }
 
