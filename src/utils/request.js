@@ -80,24 +80,25 @@ request.interceptors.response.use(
             // 拿到锁后，检查 localStorage 中的 Token 是否已被其他标签页更新
             const currentToken = localStorage.getItem('token')
             const currentRefreshToken = localStorage.getItem('refreshToken')
-            
+
             if (currentRefreshToken !== refreshToken) {
-              return { token: currentToken, refreshToken: currentRefreshToken, updatedByOtherTab: true }
+              return {
+                token: currentToken,
+                refreshToken: currentRefreshToken,
+                updatedByOtherTab: true
+              }
             }
 
             // 发起刷新请求，需携带 deviceId
-            const res = await axios.post(
-              import.meta.env.VITE_API_BASE_URL + '/refresh-token',
-              { 
-                refreshToken,
-                deviceId: getDeviceId() 
-              }
-            )
+            const res = await axios.post(import.meta.env.VITE_API_BASE_URL + '/refresh-token', {
+              refreshToken,
+              deviceId: getDeviceId()
+            })
 
             if (res.data.code === 200) {
               const newToken = res.data.data.token
               const newRefreshToken = res.data.data.refreshToken
-              
+
               localStorage.setItem('token', newToken)
               if (newRefreshToken) {
                 localStorage.setItem('refreshToken', newRefreshToken)
@@ -124,12 +125,11 @@ request.interceptors.response.use(
             // 刷新成功（或由其他标签页刷新成功），更新本地状态并处理队列
             const finalToken = result.token
             originalRequest.headers['Authorization'] = 'Bearer ' + finalToken
-            
+
             requestsQueue.forEach((item) => item.retry(finalToken))
             requestsQueue = []
 
             return request(originalRequest)
-
           } catch (err) {
             // 刷新失败：中断队列，清理状态并跳转登录
             requestsQueue.forEach((item) => item.reject(err))
@@ -140,7 +140,6 @@ request.interceptors.response.use(
           } finally {
             isRefreshing = false
           }
-
         } else {
           // 刷新接口本身返回 401，或者重试后依然 401
           ElMessage.error('登录已过期或失效，请重新登录！')
