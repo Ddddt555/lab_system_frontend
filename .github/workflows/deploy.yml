@@ -24,7 +24,7 @@ jobs:
     - name: 3. 安装依赖并构建前端产物 (测试构建)
       run: |
         npm ci
-        # 🛑【核心新增】ESLint 代码规范强制检查（零 Error 才放行）
+        # ESLint 代码规范强制检查（零 Error 才放行）
         npx eslint . 
         npm run build
 
