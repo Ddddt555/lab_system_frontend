@@ -39,13 +39,6 @@
     <el-dialog v-model="teacherDialog" title="新增教师" :width="isMobile ? '95%' : '400px'">
       <el-form :model="newTeacher" label-width="80px">
         <el-form-item label="姓名" required><el-input v-model="newTeacher.name" /></el-form-item>
-        <el-form-item label="初始密码"
-          ><el-input
-            v-model="newTeacher.password"
-            type="password"
-            show-password
-            placeholder="不填默认123456"
-        /></el-form-item>
         <el-form-item label="所属院系">
           <el-select v-model="newTeacher.deptNo" placeholder="请选择院系" style="width: 100%">
             <el-option
@@ -116,7 +109,7 @@ const deptList = ref([])
 const titleList = ref([])
 
 const teacherDialog = ref(false)
-const newTeacher = ref({ name: '', password: '', deptNo: '', titleNo: '' })
+const newTeacher = ref({ name: '', deptNo: '', titleNo: '' })
 
 const recycleDialogVisible = ref(false)
 const deletedTeacherList = ref([])
@@ -156,7 +149,7 @@ const handlePageChange = (val) => {
 }
 
 const openAddTeacher = () => {
-  newTeacher.value = { name: '', password: '', deptNo: '', titleNo: '' }
+  newTeacher.value = { name: '', deptNo: '', titleNo: '' }
   teacherDialog.value = true
 }
 

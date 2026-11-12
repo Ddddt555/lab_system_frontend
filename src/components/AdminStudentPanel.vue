@@ -51,13 +51,6 @@
     <el-dialog v-model="studentDialog" title="新增学生" :width="isMobile ? '95%' : '400px'">
       <el-form :model="newStudent" label-width="80px">
         <el-form-item label="姓名" required><el-input v-model="newStudent.name" /></el-form-item>
-        <el-form-item label="初始密码"
-          ><el-input
-            v-model="newStudent.password"
-            type="password"
-            show-password
-            placeholder="不填默认123456"
-        /></el-form-item>
         <el-form-item label="所属班级">
           <el-select
             v-model="newStudent.adminClassNo"
@@ -107,12 +100,10 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
-// 🛑【核心改造】引入统一的窗口大小监听 Hook
 import { useWindowSize } from '../composables/useWindowSize'
 
-const emit = defineEmits(['refresh-logs']) // 通知父组件刷新操作日志
+const emit = defineEmits(['refresh-logs'])
 
-// 🛑【核心改造】使用 Hook 监听窗口变化
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value < 768)
 
@@ -126,7 +117,7 @@ const allAdminClasses = ref([])
 
 // 弹窗控制
 const studentDialog = ref(false)
-const newStudent = ref({ name: '', password: '', adminClassNo: '' })
+const newStudent = ref({ name: '', adminClassNo: '' })
 const recycleDialogVisible = ref(false)
 const deletedStudentList = ref([])
 
@@ -163,7 +154,7 @@ const handlePageChange = (val) => {
 }
 
 const openAddStudent = () => {
-  newStudent.value = { name: '', password: '', adminClassNo: '' }
+  newStudent.value = { name: '', adminClassNo: '' }
   studentDialog.value = true
 }
 
@@ -244,11 +235,11 @@ const handleImportExcel = async (file) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     if (res.code === 200) {
-      // 🛑 判断是否有失败的行
+      // 判断是否有失败的行
       if (res.data.includes('失败：0 条')) {
         ElMessage.success(res.data)
       } else {
-        // 🛑 有失败行，用弹窗展示，并开启换行渲染
+        // 有失败行，用弹窗展示，并开启换行渲染
         ElMessageBox.alert(res.data, '导入结果', {
           confirmButtonText: '确定',
           type: 'warning',
