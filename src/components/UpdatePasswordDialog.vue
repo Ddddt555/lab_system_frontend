@@ -1,5 +1,5 @@
 ﻿<template>
-  <!-- 🛑 当 forced 为 true 时，不显示右上角关闭按钮，并且点击遮罩层也不关闭 -->
+  <!-- 当 forced 为 true 时，不显示右上角关闭按钮，并且点击遮罩层也不关闭 -->
   <el-dialog
     v-model="visible"
     title="修改密码"
@@ -9,7 +9,7 @@
     :show-close="!props.forced"
     @close="closeDialog"
   >
-    <!-- 🛑 强制改密时的顶部警告提示 -->
+    <!-- 强制改密时的顶部警告提示 -->
     <div v-if="props.forced" style="margin-bottom: 15px; color: #f56c6c; font-size: 13px">
       ⚠️ 系统检测到您的密码为初始密码或已被重置，必须修改后才能继续使用系统！
     </div>
@@ -19,7 +19,6 @@
         <el-input v-model="pwdForm.oldPassword" type="password" show-password />
       </el-form-item>
       <el-form-item label="新密码" required>
-        <!-- 🛑 修改了 placeholder 提示 -->
         <el-input
           v-model="pwdForm.newPassword"
           type="password"
@@ -32,7 +31,7 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <!-- 🛑 如果是强制改密，隐藏“取消”按钮，逼死强迫症 -->
+      <!-- 如果是强制改密，隐藏“取消”按钮 -->
       <el-button v-if="!props.forced" @click="closeDialog">取消</el-button>
       <el-button type="primary" :loading="loading" @click="submitPwd">确认修改</el-button>
     </template>
@@ -47,12 +46,11 @@ import request from '../utils/request'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
-  modelValue: Boolean, // 接收父组件传过来的 v-model
+  modelValue: Boolean,
   role: {
     type: String,
-    default: 'student' // 默认学生，教师/管理员也可以复用，只需改接口
+    default: 'student'
   },
-  // 🛑 新增：是否为强制改密模式
   forced: {
     type: Boolean,
     default: false
@@ -72,12 +70,12 @@ const visible = computed({
 
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
-// 移动端适配（简单获取屏幕宽度）
+// 移动端适配
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value < 768)
 
 const closeDialog = () => {
-  // 🛑 如果是强制模式，禁止关闭
+  // 如果是强制模式，禁止关闭
   if (props.forced) {
     ElMessage.warning('必须修改初始密码才能继续使用系统！')
     return
@@ -91,7 +89,7 @@ const submitPwd = async () => {
   if (!oldPassword || !newPassword || !confirmPassword) return ElMessage.warning('请填写完整信息！')
   if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致！')
 
-  // 🛑【核心修复】与后端 PasswordValidator 完全对齐的强密码校验
+  // 与后端 PasswordValidator 完全对齐的强密码校验
   if (newPassword.length < 8) return ElMessage.warning('密码长度不能少于 8 位！')
 
   const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/
@@ -101,14 +99,14 @@ const submitPwd = async () => {
 
   loading.value = true
   try {
-    // 根据角色动态拼接接口，如果是教师端直接传 role='teacher' 进来即可复用
+    // 根据角色动态拼接接口，三个端均已改造为统一接收 JSON Body
     const url = props.role === 'admin' ? '/admin/update-password' : `/${props.role}/update-password`
-    const params =
-      props.role === 'admin'
-        ? { oldPassword, newPassword }
-        : { oldPwd: oldPassword, newPwd: newPassword }
 
-    const res = await request.post(url, null, { params })
+    // 直接发送 JSON 请求体，杜绝 URL 明文传参
+    const res = await request.post(url, {
+      oldPassword,
+      newPassword
+    })
 
     if (res.code === 200) {
       ElMessage.success('修改成功，请重新登录！')
@@ -116,7 +114,6 @@ const submitPwd = async () => {
       // 强制登出重新登录
       localStorage.removeItem('loginUser')
       localStorage.removeItem('token')
-      // 🛑【顺手修复】登出时清理 refreshToken
       localStorage.removeItem('refreshToken')
 
       setTimeout(() => {
