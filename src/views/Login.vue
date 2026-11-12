@@ -21,7 +21,7 @@
         size="large"
         class="input-item"
         show-password
-        @keyup.enter="handleLogin"
+        @keyup.enter.prevent="handleLogin"
       />
 
       <!-- 验证码输入框及图片 -->
@@ -31,7 +31,7 @@
           placeholder="请输入验证码"
           size="large"
           class="captcha-input"
-          @keyup.enter="handleLogin"
+          @keyup.enter.prevent="handleLogin"
         />
         <img
           :src="captchaImage"
@@ -47,6 +47,7 @@
         type="primary"
         size="large"
         class="login-btn"
+        native-type="button"
         :loading="loading"
         @click="handleLogin"
       >
@@ -111,7 +112,7 @@ const handleLogin = async () => {
       apiUrl = '/login/admin'
     }
 
-    // 修改为直接发送 JSON 对象，配合后端的 @RequestBody LoginDTO
+    // 发送 JSON 对象，配合后端的 @RequestBody LoginDTO
     const res = await request.post(apiUrl, {
       username: username.value,
       password: password.value,
