@@ -112,7 +112,6 @@ const handleLogin = async () => {
       apiUrl = '/login/admin'
     }
 
-    // 发送 JSON 对象，配合后端的 @RequestBody LoginDTO
     const res = await request.post(apiUrl, {
       username: username.value,
       password: password.value,
@@ -155,11 +154,8 @@ const handleLogin = async () => {
       ElMessage.error(res.msg)
       fetchCaptcha()
     }
-  } catch (error) {
-    console.error(error)
-    if (!error.response || error.response.status !== 401) {
-      ElMessage.error('网络错误，请检查后端是否启动！')
-    }
+  } catch {
+    // 全局响应拦截器（request.js）已经统一处理了错误提示，这里只需刷新验证码即可
     fetchCaptcha()
   } finally {
     loading.value = false
