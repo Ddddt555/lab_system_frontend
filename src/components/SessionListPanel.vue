@@ -33,6 +33,7 @@
             v-if="scope.row.remainingSeats > 0"
             type="primary"
             size="small"
+            :disabled="scope.row.isEligible === false"
             @click="handleBook(scope.row.sessionNo)"
             >预约</el-button
           >
@@ -41,6 +42,7 @@
             type="warning"
             plain
             size="small"
+            :disabled="scope.row.isEligible === false"
             @click="handleWaitlist(scope.row.sessionNo)"
             >加入候补</el-button
           >
@@ -75,6 +77,7 @@
             v-if="item.remainingSeats > 0"
             type="primary"
             size="small"
+            :disabled="item.isEligible === false"
             @click="handleBook(item.sessionNo)"
             >预约</el-button
           >
@@ -83,6 +86,7 @@
             type="warning"
             plain
             size="small"
+            :disabled="item.isEligible === false"
             @click="handleWaitlist(item.sessionNo)"
             >加入候补</el-button
           >
@@ -176,7 +180,6 @@ const handleWaitlist = async (sessionNo) => {
   }
 }
 
-// 🛑 暴露给父组件的方法，用于响应 WebSocket 的实时更新
 defineExpose({
   updateSeats: (sessionNo, seats) => {
     const target = sessionList.value.find((s) => s.sessionNo === sessionNo)
