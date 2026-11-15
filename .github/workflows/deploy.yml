@@ -31,18 +31,23 @@ jobs:
         # 构建前端产物
         npm run build
 
-    - name: 4. 设置 Docker Buildx
+    - name: 4. 前端依赖漏洞扫描
+      run: |
+        # 扫描生产依赖，发现高危(high)及以上级别漏洞时阻断流水线
+        npm audit --audit-level=high --omit=dev
+
+    - name: 5. 设置 Docker Buildx
       if: github.event_name != 'pull_request'
       uses: docker/setup-buildx-action@v3
 
-    - name: 5. 登录 Docker Hub
+    - name: 6. 登录 Docker Hub
       if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: 6. 构建并推送 Docker 镜像
+    - name: 7. 构建并推送 Docker 镜像
       if: github.event_name != 'pull_request'
       uses: docker/build-push-action@v5
       with:
@@ -54,3 +59,16 @@ jobs:
           ${{ secrets.DOCKER_USERNAME }}/labsystem-frontend:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: 8. 前端镜像安全扫描 (Trivy)
+      if: github.event_name != 'pull_request'
+      uses: aquasecurity/trivy-action@0.36.0
+      with:
+        # 扫描刚刚推送到 Docker Hub 的镜像
+        image-ref: ${{ secrets.DOCKER_USERNAME }}/labsystem-frontend:${{ github.sha }}
+        format: 'table'
+        # 发现 CRITICAL 或 HIGH 级别漏洞时，退出码设为 1，阻断流水线
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
