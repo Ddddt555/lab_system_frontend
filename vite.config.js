@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => {
         resolvers: [ElementPlusResolver()]
       })
     ],
+    // 配置 Vitest 测试环境
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      include: ['src/**/*.{test,spec}.{js,ts,vue}']
+    },
     server: {
       host: '0.0.0.0',
       port: 5173,

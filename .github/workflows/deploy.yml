@@ -21,11 +21,14 @@ jobs:
         node-version: '20'
         cache: 'npm'
 
-    - name: 3. 安装依赖并构建前端产物 (测试构建)
+    - name: 3. 安装依赖、规范检查、单元测试与构建
       run: |
         npm ci
         # ESLint 代码规范强制检查（零 Error 才放行）
         npx eslint . 
+        # 运行 Vitest 单元测试（测试不通过则阻断流水线）
+        npm run test
+        # 构建前端产物
         npm run build
 
     - name: 4. 设置 Docker Buildx

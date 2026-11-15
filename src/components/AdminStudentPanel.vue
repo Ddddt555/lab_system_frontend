@@ -162,7 +162,7 @@ const submitAddStudent = async () => {
   if (!newStudent.value.name) return ElMessage.warning('姓名不能为空！')
   // 增加对行政班的非空校验
   if (!newStudent.value.adminClassNo) return ElMessage.warning('所属行政班不能为空！')
-  
+
   const res = await request.post('/admin/student/add', newStudent.value)
   if (res.code === 200) {
     ElMessage.success(res.data)
