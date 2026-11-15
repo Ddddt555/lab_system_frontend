@@ -62,16 +62,14 @@ jobs:
 
     - name: 8. 前端镜像安全扫描 (Trivy)
       if: github.event_name != 'pull_request'
-      # 固定版本为 v0.32.0
-      uses: aquasecurity/trivy-action@v0.32.0
-      with:
-        # 扫描刚刚推送到 Docker Hub 的镜像
-        image-ref: ${{ secrets.DOCKER_USERNAME }}/labsystem-frontend:${{ github.sha }}
-        format: 'table'
-        # 发现 CRITICAL 或 HIGH 级别漏洞时，退出码设为 1，阻断流水线
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
-        # 显式指定一个稳定可用的 Trivy 引擎版本，避免因拉取最新版导致下载超时或失败
-        version: 'v0.58.2'
+      # 直接使用官方 Docker 镜像运行，版本绝对固定，避免下载二进制超时
+      run: |
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:0.58.2 image \
+          --exit-code 1 \
+          --ignore-unfixed \
+          --vuln-type os,library \
+          --severity CRITICAL,HIGH \
+          --format table \
+          ${{ secrets.DOCKER_USERNAME }}/labsystem-frontend:${{ github.sha }}
