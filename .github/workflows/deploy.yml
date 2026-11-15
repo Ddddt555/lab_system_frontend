@@ -62,7 +62,7 @@ jobs:
 
     - name: 8. 前端镜像安全扫描 (Trivy)
       if: github.event_name != 'pull_request'
-      # 固定版本为 v0.32.0，该版本修复了内部 setup-trivy 依赖丢失的问题
+      # 固定版本为 v0.32.0
       uses: aquasecurity/trivy-action@v0.32.0
       with:
         # 扫描刚刚推送到 Docker Hub 的镜像
@@ -73,3 +73,5 @@ jobs:
         ignore-unfixed: true
         vuln-type: 'os,library'
         severity: 'CRITICAL,HIGH'
+        # 显式指定一个稳定可用的 Trivy 引擎版本，避免因拉取最新版导致下载超时或失败
+        version: 'v0.58.2'
