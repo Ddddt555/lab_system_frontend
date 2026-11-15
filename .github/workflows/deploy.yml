@@ -62,8 +62,8 @@ jobs:
 
     - name: 8. 前端镜像安全扫描 (Trivy)
       if: github.event_name != 'pull_request'
-      # 使用固定的版本号以保障供应链安全（注意需带 v 前缀）
-      uses: aquasecurity/trivy-action@v0.28.0
+      # 固定版本为 v0.32.0，该版本修复了内部 setup-trivy 依赖丢失的问题
+      uses: aquasecurity/trivy-action@v0.32.0
       with:
         # 扫描刚刚推送到 Docker Hub 的镜像
         image-ref: ${{ secrets.DOCKER_USERNAME }}/labsystem-frontend:${{ github.sha }}
