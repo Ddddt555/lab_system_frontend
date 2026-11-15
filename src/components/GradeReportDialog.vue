@@ -81,6 +81,7 @@ const fetchReports = async () => {
       ElMessage.error(res.msg)
     }
   } catch (error) {
+    // 错误提示已由全局请求拦截器统一处理
   } finally {
     loading.value = false
   }
@@ -93,16 +94,23 @@ const gradeReport = async (report) => {
       inputErrorMessage: '0-100'
     })
     const { value: comment } = await ElMessageBox.prompt('请输入评语', '评语')
-    const res = await request.post(
-      `/report/grade?reportNo=${report.reportNo}&score=${score}&comment=${comment}`
-    )
+
+    //  JSON Body 提交
+    const res = await request.post('/report/grade', {
+      reportNo: report.reportNo,
+      score: Number(score),
+      comment: comment
+    })
+
     if (res.code === 200) {
       ElMessage.success('批阅成功！')
       fetchReports()
     } else {
       ElMessage.error(res.msg)
     }
-  } catch (error) {}
+  } catch (error) {
+    // 错误提示已由全局请求拦截器统一处理
+  }
 }
 
 const closeDialog = () => {

@@ -59,9 +59,10 @@ const submitSign = async () => {
     return ElMessage.warning('请输入完整的 6 位签到码！')
   signing.value = true
   try {
-    const res = await request.post(
-      `/student/attendance/sign?sessionNo=${props.sessionNo}&code=${signCode.value}`
-    )
+    const res = await request.post('/student/attendance/sign', {
+      sessionNo: props.sessionNo,
+      code: signCode.value
+    })
     if (res.code === 200) {
       ElMessage.success(res.data)
       visible.value = false

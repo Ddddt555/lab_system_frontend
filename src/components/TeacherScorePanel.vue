@@ -181,9 +181,11 @@ const saveScore = async (studentNo) => {
   if (!row || row.score === null || row.score === undefined)
     return ElMessage.warning('请输入平时成绩')
   try {
-    const res = await request.post(
-      `/teacher/score/save?studentNo=${studentNo}&classNo=${selectedClassNo.value}&dailyScore=${row.score}`
-    )
+    const res = await request.post('/teacher/score/save', {
+      studentNo: studentNo,
+      classNo: selectedClassNo.value,
+      dailyScore: row.score
+    })
     if (res.code === 200) {
       ElMessage.success(res.data)
       fetchCourseScores()
@@ -232,12 +234,10 @@ const submitWeight = async () => {
     return ElMessage.warning('平时成绩和报告成绩的占比之和必须等于 100%！')
   }
   try {
-    const res = await request.post('/teacher/score/weight', null, {
-      params: {
-        classNo: selectedClassNo.value,
-        dailyWeight: weightForm.value.dailyWeight,
-        reportWeight: weightForm.value.reportWeight
-      }
+    const res = await request.post('/teacher/score/weight', {
+      classNo: selectedClassNo.value,
+      dailyWeight: weightForm.value.dailyWeight,
+      reportWeight: weightForm.value.reportWeight
     })
     if (res.code === 200) {
       ElMessage.success(res.data)
