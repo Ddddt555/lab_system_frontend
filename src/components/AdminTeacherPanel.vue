@@ -205,7 +205,7 @@ const fetchDeletedTeachers = async () => {
     const res = await request.get('/admin/teacher/recycle')
     if (res.code === 200) deletedTeacherList.value = res.data
   } catch (e) {
-    ElMessage.error('获取回收站数据失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -219,7 +219,7 @@ const restoreTeacher = async (workNo) => {
       emit('refresh-logs')
     }
   } catch (e) {
-    ElMessage.error('恢复失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 </script>

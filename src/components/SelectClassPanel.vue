@@ -126,7 +126,7 @@ const selectClass = async (classNo) => {
       ElMessage.warning(res.msg)
     }
   } catch (e) {
-    ElMessage.error('选课失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -140,7 +140,9 @@ const dropClass = async (classNo) => {
     } else {
       ElMessage.error(res.msg)
     }
-  } catch (e) {}
+  } catch (e) {
+    // 包含用户点击取消，静默处理
+  }
 }
 </script>
 

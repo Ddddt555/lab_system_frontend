@@ -54,7 +54,6 @@
 
     <ReportHistoryDialog v-model="historyDialogVisible" :project-no="historyProjectNo" />
 
-    <!-- 🛑 核心修复：传入 forced 属性 -->
     <UpdatePasswordDialog
       v-model="pwdDialog"
       role="student"
@@ -99,10 +98,9 @@ import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { WsClient } from '../utils/ws'
-// 🛑【核心改造】引入统一的窗口大小监听 Hook
 import { useWindowSize } from '../composables/useWindowSize'
 
-// 【引入所有的独立组件】
+// 引入独立组件
 import UpdatePasswordDialog from '../components/UpdatePasswordDialog.vue'
 import UploadReportDialog from '../components/UploadReportDialog.vue'
 import ReportHistoryDialog from '../components/ReportHistoryDialog.vue'
@@ -117,13 +115,12 @@ const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const currentStudentNo = loginUser ? loginUser.userNo : ''
 if (!currentStudentNo) router.push('/')
 
-// 🛑【核心改造】使用 Hook 监听窗口变化
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value < 768)
 
 const activeTab = ref('select-class')
 
-// 【各个弹窗的状态】
+// 各个弹窗的状态
 const uploadDialogVisible = ref(false)
 const selectedProjectNo = ref('')
 const selectedProjectName = ref('')
@@ -141,29 +138,27 @@ const noticeDrawerVisible = ref(false)
 const noticeList = ref([])
 const hasUnread = ref(false)
 
-// 【获取子组件实例引用，用于接收 WS 更新】
+// 获取子组件实例引用，用于接收 WS 更新
 const sessionPanelRef = ref(null)
 const bookingPanelRef = ref(null)
 
 let globalWs = null
 
 onMounted(() => {
-  // 🛑【核心改造】移除了原来的 window.addEventListener
   fetchNotices()
   initGlobalWebSocket()
 
-  // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
+  // 如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
   if (loginUser && loginUser.mustChangePassword) {
     pwdDialog.value = true
   }
 })
 
 onUnmounted(() => {
-  // 🛑【核心改造】移除了原来的 window.removeEventListener
   if (globalWs) globalWs.close()
 })
 
-// ⚠️ WebSocket 核心逻辑
+// WebSocket 核心逻辑
 const initGlobalWebSocket = async () => {
   const urlProvider = async () => {
     const res = await request.get('/ws-ticket')
@@ -205,10 +200,10 @@ const initGlobalWebSocket = async () => {
 }
 
 const handleTabChange = (name) => {
-  // 现在的切换不需要写复杂的逻辑了，因为组件挂载时自己会拉数据
+  // 组件挂载时自动拉取数据，无需额外处理
 }
 
-// 【处理子组件抛出的弹窗事件】
+// 处理子组件抛出的弹窗事件
 const openUploadDialog = (row) => {
   selectedProjectNo.value = row.projectNo
   selectedProjectName.value = row.projectName
@@ -226,7 +221,7 @@ const openSignDialog = (row) => {
   signDialogVisible.value = true
 }
 
-// 【操作成功后的刷新】
+// 操作成功后的刷新
 const onUploadSuccess = () => {
   if (bookingPanelRef.value) bookingPanelRef.value.refresh()
 }
@@ -239,7 +234,7 @@ const fetchNotices = async () => {
   try {
     const res = await request.get('/notice/list')
     if (res.code === 200) {
-      // 🛑【核心改造】适配后端新的返回结构 { list: [], unreadCount: 0 }
+      // 适配后端的返回结构 { list: [], unreadCount: 0 }
       noticeList.value = res.data.list
       hasUnread.value = res.data.unreadCount > 0
     }
@@ -248,11 +243,16 @@ const fetchNotices = async () => {
 
 const openNoticeDrawer = () => {
   noticeDrawerVisible.value = true
-  // 🛑【核心改造】不再使用 localStorage，而是通知后端标记已读
+  // 通知后端标记已读
   if (hasUnread.value) {
-    request.post('/notice/mark-read').then(() => {
-      hasUnread.value = false
-    })
+    request
+      .post('/notice/mark-read')
+      .then(() => {
+        hasUnread.value = false
+      })
+      .catch(() => {
+        // 错误提示已由全局请求拦截器统一处理
+      })
   }
 }
 
@@ -267,7 +267,7 @@ const logout = async () => {
     if (globalWs) globalWs.close()
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken') // 🛑【核心修复】清理刷新令牌
+    localStorage.removeItem('refreshToken') // 清理刷新令牌
     router.push('/')
   }
 }

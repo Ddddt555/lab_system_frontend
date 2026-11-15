@@ -123,7 +123,7 @@ const submitPwd = async () => {
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    ElMessage.error('网络错误，修改失败！')
+    // 错误提示已由全局请求拦截器（request.js）统一处理，这里无需再弹窗
   } finally {
     loading.value = false
   }

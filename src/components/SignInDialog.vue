@@ -70,7 +70,7 @@ const submitSign = async () => {
       ElMessage.error(res.msg)
     }
   } catch (e) {
-    ElMessage.error('签到失败，请检查网络')
+    // 错误提示已由全局请求拦截器统一处理
   } finally {
     signing.value = false
   }

@@ -135,10 +135,9 @@ import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import { WsClient } from '../utils/ws'
-// 🛑【核心改造】引入统一的窗口大小监听 Hook
 import { useWindowSize } from '../composables/useWindowSize'
 
-// 🛑 引入所有拆分的独立组件
+// 引入所有拆分的独立组件
 import AdminStudentPanel from '../components/AdminStudentPanel.vue'
 import AdminTeacherPanel from '../components/AdminTeacherPanel.vue'
 import AdminDeptPanel from '../components/AdminDeptPanel.vue'
@@ -156,7 +155,6 @@ const router = useRouter()
 const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const activeTab = ref('students')
 
-// 🛑【核心改造】使用 Hook 监听窗口变化
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value < 768)
 
@@ -173,18 +171,16 @@ const logPanelRef = ref(null)
 const formatTime = (timeStr) => (timeStr ? timeStr.replace('T', ' ').substring(0, 16) : '')
 
 onMounted(() => {
-  // 🛑【核心改造】移除了原来的 window.addEventListener
   fetchNotices()
   initGlobalWebSocket()
 
-  // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
+  // 如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
   if (loginUser && loginUser.mustChangePassword) {
     pwdDialog.value = true
   }
 })
 
 onUnmounted(() => {
-  // 🛑【核心改造】移除了原来的 window.removeEventListener
   if (globalWs) globalWs.close()
 })
 
@@ -218,7 +214,6 @@ const fetchNotices = async () => {
   try {
     const res = await request.get('/notice/list')
     if (res.code === 200) {
-      // 🛑【核心改造】适配后端新的返回结构 { list: [], unreadCount: 0 }
       noticeList.value = res.data.list
       hasUnread.value = res.data.unreadCount > 0
     }
@@ -227,11 +222,15 @@ const fetchNotices = async () => {
 
 const openNoticeDrawer = () => {
   noticeDrawerVisible.value = true
-  // 🛑【核心改造】不再使用 localStorage，而是通知后端标记已读
   if (hasUnread.value) {
-    request.post('/notice/mark-read').then(() => {
-      hasUnread.value = false
-    })
+    request
+      .post('/notice/mark-read')
+      .then(() => {
+        hasUnread.value = false
+      })
+      .catch(() => {
+        // 错误提示已由全局请求拦截器统一处理
+      })
   }
 }
 
@@ -259,11 +258,10 @@ const submitPublish = async () => {
       ElMessage.error(res.msg)
     }
   } catch (e) {
-    ElMessage.error('发布失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
-// 🛑【核心改造】异步登出，通知后端清理 Redis 中的 Refresh Token
 const logout = async () => {
   try {
     await request.post('/logout')

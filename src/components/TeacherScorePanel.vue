@@ -152,7 +152,7 @@ const fetchCourseScores = async () => {
       totalScores.value = res.data.total
     }
   } catch (e) {
-    ElMessage.error('获取成绩单失败')
+    // 错误提示已由全局请求拦截器统一处理
   } finally {
     loading.value = false
   }
@@ -191,7 +191,7 @@ const saveScore = async (studentNo) => {
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    ElMessage.error('保存失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -215,8 +215,7 @@ const exportScores = () => {
       window.URL.revokeObjectURL(url)
     })
     .catch((e) => {
-      console.error(e)
-      ElMessage.error('导出失败，请检查后端服务')
+      // 错误提示已由全局请求拦截器统一处理
     })
 }
 
@@ -250,7 +249,7 @@ const submitWeight = async () => {
       ElMessage.error(res.msg)
     }
   } catch (e) {
-    ElMessage.error('网络错误')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 </script>

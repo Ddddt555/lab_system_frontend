@@ -220,8 +220,7 @@ const downloadTemplate = () => {
       ElMessage.success('模板下载成功！')
     })
     .catch((e) => {
-      console.error(e)
-      ElMessage.error('下载模板失败，请检查后端服务')
+      // 错误提示已由全局请求拦截器统一处理
     })
 }
 
@@ -258,7 +257,7 @@ const handleImportExcel = async (file) => {
       ElMessage.error(res.msg)
     }
   } catch (e) {
-    ElMessage.error('导入失败，请检查文件格式！')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -274,7 +273,7 @@ const fetchDeletedStudents = async () => {
       deletedStudentList.value = res.data
     }
   } catch (e) {
-    ElMessage.error('获取回收站数据失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -288,7 +287,7 @@ const restoreStudent = async (studentNo) => {
       emit('refresh-logs')
     }
   } catch (e) {
-    ElMessage.error('恢复失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 </script>

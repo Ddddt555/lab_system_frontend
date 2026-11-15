@@ -117,7 +117,7 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
 
-const emit = defineEmits(['success']) // 通知父组件刷新或其他操作
+const emit = defineEmits(['success'])
 
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value < 768)
@@ -242,7 +242,7 @@ const submitAddSession = async () => {
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    ElMessage.error('排课失败！')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 

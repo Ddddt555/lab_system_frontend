@@ -49,7 +49,6 @@
     </div>
 
     <!-- 公共弹窗 -->
-    <!-- 🛑 核心修复：传入 forced 属性 -->
     <UpdatePasswordDialog
       v-model="pwdDialog"
       role="teacher"
@@ -71,7 +70,6 @@
       </template>
     </el-dialog>
 
-    <!-- 🛑【独立业务弹窗】🛑 -->
     <AttendanceDialog v-model="attendanceDialogVisible" :session-no="currentSessionNo" />
     <GradeReportDialog v-model="gradeDialogVisible" :project-no="currentProjectNo" />
 
@@ -105,10 +103,9 @@ import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
-// 🛑【核心改造】引入统一的窗口大小监听 Hook
 import { useWindowSize } from '../composables/useWindowSize'
 
-// 🛑【引入所有子组件】🛑
+// 引入所有子组件
 import TeacherSessionPanel from '../components/TeacherSessionPanel.vue'
 import TeacherProjectPanel from '../components/TeacherProjectPanel.vue'
 import TeacherSchedulePanel from '../components/TeacherSchedulePanel.vue'
@@ -123,7 +120,6 @@ const loginUser = JSON.parse(localStorage.getItem('loginUser'))
 const workNo = loginUser ? loginUser.userNo : ''
 if (!workNo) router.push('/')
 
-// 🛑【核心改造】使用 Hook 监听窗口变化
 const { width } = useWindowSize()
 const isMobile = computed(() => width.value < 768)
 
@@ -148,7 +144,6 @@ const currentProjectNo = ref('')
 onMounted(() => {
   fetchNotices()
 
-  // 🛑【核心修复】如果登录时标记了需要改密，进入主页自动弹出强制改密窗口
   if (loginUser && loginUser.mustChangePassword) {
     pwdDialog.value = true
   }
@@ -158,7 +153,6 @@ const fetchNotices = async () => {
   try {
     const res = await request.get('/notice/list')
     if (res.code === 200) {
-      // 🛑【核心改造】适配后端新的返回结构 { list: [], unreadCount: 0 }
       noticeList.value = res.data.list
       hasUnread.value = res.data.unreadCount > 0
     }
@@ -167,11 +161,15 @@ const fetchNotices = async () => {
 
 const openNoticeDrawer = () => {
   noticeDrawerVisible.value = true
-  // 🛑【核心改造】不再使用 localStorage，而是通知后端标记已读
   if (hasUnread.value) {
-    request.post('/notice/mark-read').then(() => {
-      hasUnread.value = false
-    })
+    request
+      .post('/notice/mark-read')
+      .then(() => {
+        hasUnread.value = false
+      })
+      .catch(() => {
+        // 错误提示已由全局请求拦截器统一处理
+      })
   }
 }
 
@@ -199,7 +197,7 @@ const submitPublish = async () => {
       ElMessage.error(res.msg)
     }
   } catch (e) {
-    ElMessage.error('发布失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -219,11 +217,11 @@ const logout = async () => {
   try {
     await request.post('/logout')
   } catch (e) {
-    // 忽略报错
+    // 忽略网络错误
   } finally {
     localStorage.removeItem('loginUser')
     localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken') // 🛑【核心修复】清理刷新令牌
+    localStorage.removeItem('refreshToken')
     router.push('/')
   }
 }

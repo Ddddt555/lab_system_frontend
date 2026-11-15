@@ -24,7 +24,7 @@
             </el-upload>
           </template>
         </el-table-column>
-        <!-- 新增操作列 -->
+        <!-- 操作列 -->
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="scope">
             <el-button type="danger" size="small" @click="deleteProject(scope.row.projectNo)">
@@ -79,7 +79,6 @@
 <script setup>
 import { useWindowSize } from '../composables/useWindowSize'
 import { ref, onMounted, computed } from 'vue'
-// 注意这里引入了 ElMessageBox
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
 
@@ -144,11 +143,10 @@ const handleGuideUpload = async (file, projectNo) => {
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    ElMessage.error('上传失败！')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
-// 新增删除项目逻辑
 const deleteProject = async (projectNo) => {
   try {
     await ElMessageBox.confirm('确定要删除该实验项目吗？删除后不可恢复！', '警告', {
@@ -184,7 +182,7 @@ const submitAddProject = async () => {
       ElMessage.error(res.msg)
     }
   } catch (e) {
-    ElMessage.error('请求失败')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 </script>

@@ -78,12 +78,12 @@ const submitUpload = async () => {
     if (res.code === 200) {
       ElMessage.success(res.data)
       visible.value = false
-      emit('success') // 通知父组件刷新列表
+      emit('success')
     } else {
       ElMessage.error(res.msg)
     }
   } catch (error) {
-    ElMessage.error('上传失败，请检查后端！')
+    // 错误提示已由全局请求拦截器统一处理
   } finally {
     uploading.value = false
   }

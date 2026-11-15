@@ -162,7 +162,7 @@ const handleBook = async (sessionNo) => {
       ElMessage.warning(res.msg)
     }
   } catch (error) {
-    ElMessage.error('预约失败！')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
@@ -176,7 +176,7 @@ const handleWaitlist = async (sessionNo) => {
       ElMessage.warning(res.msg)
     }
   } catch (error) {
-    ElMessage.error('加入候补失败，请检查网络！')
+    // 错误提示已由全局请求拦截器统一处理
   }
 }
 
