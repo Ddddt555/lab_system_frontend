@@ -51,12 +51,12 @@
     <el-dialog v-model="studentDialog" title="新增学生" :width="isMobile ? '95%' : '400px'">
       <el-form :model="newStudent" label-width="80px">
         <el-form-item label="姓名" required><el-input v-model="newStudent.name" /></el-form-item>
-        <el-form-item label="所属班级">
+        <el-form-item label="所属班级" required>
+          <!-- 移除 clearable 属性 -->
           <el-select
             v-model="newStudent.adminClassNo"
             placeholder="请选择行政班"
             style="width: 100%"
-            clearable
           >
             <el-option
               v-for="c in allAdminClasses"
@@ -160,6 +160,9 @@ const openAddStudent = () => {
 
 const submitAddStudent = async () => {
   if (!newStudent.value.name) return ElMessage.warning('姓名不能为空！')
+  // 增加对行政班的非空校验
+  if (!newStudent.value.adminClassNo) return ElMessage.warning('所属行政班不能为空！')
+  
   const res = await request.post('/admin/student/add', newStudent.value)
   if (res.code === 200) {
     ElMessage.success(res.data)
