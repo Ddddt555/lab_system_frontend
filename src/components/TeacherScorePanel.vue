@@ -28,7 +28,7 @@
         style="width: 100%"
       >
         <el-table-column prop="studentNo" label="学号" width="150" align="center" />
-        <el-table-column prop="teacherName" label="姓名" width="100" align="center" />
+        <el-table-column prop="studentName" label="姓名" width="100" align="center" />
         <el-table-column :label="`平时成绩 (${currentDailyWeight}%)`" width="150" align="center">
           <template #default="scope"
             ><el-input-number v-model="scope.row.score" :min="0" :max="100" size="small"
