@@ -62,7 +62,8 @@ jobs:
 
     - name: 8. 前端镜像安全扫描 (Trivy)
       if: github.event_name != 'pull_request'
-      uses: aquasecurity/trivy-action@0.36.0
+      # 已修复：使用真实存在的 Action 版本
+      uses: aquasecurity/trivy-action@0.28.0
       with:
         # 扫描刚刚推送到 Docker Hub 的镜像
         image-ref: ${{ secrets.DOCKER_USERNAME }}/labsystem-frontend:${{ github.sha }}
